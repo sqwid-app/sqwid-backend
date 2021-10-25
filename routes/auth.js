@@ -34,14 +34,14 @@ let auth = (req, res) => {
                 });
             }
         } else {
-            res.status (400).send ({
+            res.status (401).send ({
                 status: 'error',
                 message: 'User not found'
             });
         }
     })
     .catch (err => {
-        res.status (400).send ({
+        res.status (402).send ({
             status: 'error',
             message: err.message
         });

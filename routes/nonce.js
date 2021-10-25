@@ -1,5 +1,6 @@
 const { Router } = require ('express');
 const firebase = require ('../lib/firebase');
+const generateNonce = require ('../lib/nonce');
 
 let nonce = (req, res) => {
     firebase
@@ -13,13 +14,18 @@ let nonce = (req, res) => {
             });
         } else {
             let nonce = generateNonce ();
+            console.log (nonce);
             firebase.collection ('users').doc (req.query.address).set ({
                 address: req.query.address,
-                nonce
+                nonce,
+                displayName: req.query.address,
+                bio: ''
             }).then (() => {
                 res.json ({
                     nonce
                 });
+            }).catch ((err) => {
+                console.log (err);
             });
         }
     })
