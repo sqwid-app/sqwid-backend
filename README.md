@@ -12,7 +12,7 @@ GET /api/nonce
 POST /api/auth
 ```
 **BODY:**
-```json
+```js
 {
     address: '',
     signature: ''
@@ -26,11 +26,11 @@ POST /api/auth
 POST /api/create/collection
 ```
 **HEADERS**
-```json
+```sh
 Authorization: Bearer <jwt>
 ```
 **BODY**
-```json
+```js
 {
     name: '',
     description: '',
@@ -43,11 +43,11 @@ Authorization: Bearer <jwt>
 POST /api/create/collectible
 ```
 **HEADERS**
-```json
+```sh
 Authorization: Bearer <jwt>
 ```
 **BODY**
-```json
+```js
 {
     name: '',
     description: '',
