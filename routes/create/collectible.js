@@ -26,7 +26,7 @@ let upload = async (req, res, next) => {
             ),
             properties: req.body.properties || {},
         })
-        res.status (200).send (metadata.data);
+        res.status (200).send (metadata.url);
     } catch (err) {
         next (err);
     }
