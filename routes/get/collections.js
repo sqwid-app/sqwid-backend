@@ -22,24 +22,30 @@ const byOwner = async (req, res) => {
 
 
 const byName = async (req, res) => {
-    const collectionsRef = firebase.collection ('collections');
-    const snapshot = await collectionsRef
-        .where ('name', '>=', req.params.name)
-        .where ('name', '<=', req.params.name + '\uF8FF')
-        .get ();
-
-    if (snapshot.empty) {
-        res.status (404).send ({
-            message: 'No collections found'
+    if (req.params.name.length < 3) {
+        res.status (400).send ({
+            message: 'Name must be at least 3 characters long'
         });
     } else {
-        let collections = [];
-        snapshot.forEach (doc => {
-            collections.push ({ id: doc.id, data: doc.data () });
-        });
-        res.status (200).send ({
-            collections: collections
-        });
+        const collectionsRef = firebase.collection ('collections');
+        const snapshot = await collectionsRef
+            .where ('name', '>=', req.params.name)
+            .where ('name', '<=', req.params.name + '\uF8FF')
+            .get ();
+
+        if (snapshot.empty) {
+            res.status (404).send ({
+                message: 'No collections found'
+            });
+        } else {
+            let collections = [];
+            snapshot.forEach (doc => {
+                collections.push ({ id: doc.id, data: doc.data () });
+            });
+            res.status (200).send ({
+                collections: collections
+            });
+        }
     }
 }
 
@@ -58,6 +64,31 @@ const byId = async (req, res) => {
     }
 }
 
+const all = async (req, res) => {
+    const collectionsRef = firebase.collection ('collections');
+    
+    const startAt = req.query.startAt || 0;
+    const limit = Math.min (req.query.limit, 100) || 10;
+    const sorting = 'asc';
+    const orderBy = req.query.orderBy || 'name';
+
+    const snapshot = await collectionsRef.orderBy (orderBy, sorting).startAt (startAt).limit (limit).get ();
+
+    if (snapshot.empty) {
+        res.status (404).send ({
+            message: 'No collections found'
+        });
+    } else {
+        let collections = [];
+        snapshot.forEach (doc => {
+            collections.push ({ id: doc.id, data: doc.data () });
+        });
+        res.status (200).send ({
+            collections: collections
+        });
+    }
+}
+
 
 
 module.exports = () => {
@@ -66,6 +97,7 @@ module.exports = () => {
     router.get ('/owner/:address', byOwner);
     router.get ('/name/:name', byName);
     router.get ('/id/:id', byId);
+    router.get ('/all', all);
     
     return router;
 }
