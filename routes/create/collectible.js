@@ -66,7 +66,7 @@ let addToDb = async (req, res, next) => {
                 const doc = await collection.where ('id', '==', i).get ();
                 console.log (doc.size);
                 if (doc.empty) {
-                    await collection.doc (i.toString (16)).set ({
+                    await collection.doc (i.toString ()).set ({
                         id: i,
                         uri: metadata,
                         creator: userAddress,
