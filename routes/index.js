@@ -11,6 +11,7 @@ const getUserRoutes = require ('./get/user');
 const getEditUserRoutes = require ('./edit/user');
 const getVerifyJWTRoutes = require ('./verifyjwt');
 const getEditEVMAddressRoutes = require ('./edit/evmAddress');
+const getSyncCollectiblesRoutes = require ('./sync/collectibles');
 
 module.exports = () => {
     const router = Router ();
@@ -25,6 +26,8 @@ module.exports = () => {
     router.use ('/get/user', getUserRoutes ());
     router.use ('/edit/user', getEditUserRoutes ());
     router.use ('/edit/evmaddress', getEditEVMAddressRoutes ());
+    router.use ('/sync/collectibles', getSyncCollectiblesRoutes ());
+
     router.use ('/verifyjwt', getVerifyJWTRoutes ());
 
     router.get ('/', (req, res) => {
