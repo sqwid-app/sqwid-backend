@@ -1,10 +1,31 @@
 const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
+const { getEVMAddress } = require('../../lib/getEVMAddress');
+
+const getSubstrateAddress = async (evmAddress) => {
+    let res = await firebase.collection ('users').where ('evmAddress', '==', evmAddress).get ()
+    if (res.empty) return null;
+    else return res.docs [0].data ().address;
+} 
 
 const byOwner = async (req, res) => {
     const collectionsRef = firebase.collection ('collections');
-    const snapshot = await collectionsRef.where ('owner', '==', req.params.address).get ();
-
+    let address;
+    let snapshot = {};
+    if (req.params.address.startsWith ('0x')) {
+        address = await getSubstrateAddress (req.params.address);
+        if (address) {
+            snapshot = await collectionsRef.where ('owner', '==', address).get ();            
+        } else {
+            res.status (400).send ({
+                message: 'Invalid address'
+            });
+            return;
+        }
+    } else {
+        snapshot = await collectionsRef.where ('owner', '==', req.params.address).get ();
+    }
+    
     if (snapshot.empty) {
         res.status (404).send ({
             message: 'No collections found'
@@ -54,13 +75,17 @@ const byId = async (req, res) => {
     const snapshot = await collectionsRef.doc (req.params.id).get ();
 
     if (!snapshot.exists) {
-        res.status (404).send ({
+        res?.status (404).send ({
             message: 'No collection found'
         });
+        return null;
     } else {
-        res.status (200).send ({
+        res?.status (200).send ({
             collection: { id: snapshot.id, data: snapshot.data () }
         });
+        return {
+            collection: { id: snapshot.id, data: snapshot.data () }
+        };
     }
 }
 
@@ -91,13 +116,19 @@ const all = async (req, res) => {
 
 
 
-module.exports = () => {
-    const router = Router ();
+module.exports = {
+    router: () => {
+        const router = Router ();
 
-    router.get ('/owner/:address', byOwner);
-    router.get ('/name/:name', byName);
-    router.get ('/id/:id', byId);
-    router.get ('/all', all);
-    
-    return router;
+        router.get ('/owner/:address', byOwner);
+        router.get ('/name/:name', byName);
+        router.get ('/id/:id', byId);
+        router.get ('/all', all);
+        
+        return router;
+    },
+    byOwner,
+    byName,
+    byId,
+    all
 }

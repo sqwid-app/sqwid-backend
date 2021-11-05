@@ -13,12 +13,13 @@ let auth = (req, res) => {
         if (doc.exists) {
             const user = doc.data ();
             const { nonce } = user;
-            const { address, signature } = req.body;
+            const { address, signature, evmAddress } = req.body;
 
             if (isValidSignature (nonce, signature, address)) {
                 let jwt = generateToken (address);
                 doc.ref.set ({
                     nonce: generateNonce (),
+                    evmAddress
                 }, { merge: true }).then (() => {
                     res.status (200).send ({
                         status: 'success',

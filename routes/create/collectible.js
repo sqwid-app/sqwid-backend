@@ -14,6 +14,8 @@ const { ABI } = require ('../../contracts/SqwidERC1155');
 const { getCloudflareURL } = require ('../../lib/getIPFSURL');
 const { default: axios } = require('axios');
 
+const { getEVMAddress } = require ('../../lib/getEVMAddress');
+
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
     limits: {
@@ -28,6 +30,8 @@ let upload = async (req, res, next) => {
 
     let col = req.body.collection || "Sqwid";
     const collection = await firebase.collection ('collections').doc (col).get ();
+    let creator = await getEVMAddress (req.user.address);
+    console.log (creator);
 
     if (collection.exists) {
         if (collection.data ().owner === req.user.address || col === "Sqwid") {
@@ -38,7 +42,7 @@ let upload = async (req, res, next) => {
                     properties: {
                         custom: JSON.parse (req.body.properties) || {},
                         mimetype: file ? file.mimetype : null,
-                        creator: req.user.address,
+                        creator: creator,
                         media: file ? (new File ([file.buffer], file.originalname, { type: file.mimetype })) : null,
                         collection: col,
                     },
@@ -77,20 +81,24 @@ let sync = async (req, res, next) => {
         let url = getCloudflareURL (uri);
         const doc = await dbCollection.where ('id', '==', i).get ();
         if (doc.empty) {
-            const response = await axios (url);
-            const json = await response.data;
-            const { name, properties } = json;
-            const { collection, creator } = properties;
-
-            const data = {
-                id: i,
-                uri,
-                collection: collection || "Sqwid",
-                createdAt: new Date (),
-                creator,
-                name
-            };
-            await dbCollection.doc (i.toString ()).set (data);
+            try {
+                const response = await axios (url);
+                const json = await response.data;
+                const { name, properties } = json;
+                const { collection, creator } = properties;
+    
+                const data = {
+                    id: i,
+                    uri,
+                    collection: collection || "Sqwid",
+                    createdAt: new Date (),
+                    creator,
+                    name
+                };
+                await dbCollection.doc (i.toString ()).set (data);
+            } catch (err) {
+                console.log (err);
+            }
         }
     }
     res.status (200).json ({

@@ -21,20 +21,24 @@ let sync = async (req, res) => {
         let url = getCloudflareURL (uri);
         const doc = await dbCollection.where ('id', '==', i).get ();
         if (doc.empty) {
-            const response = await axios (url);
-            const json = await response.data;
-            const { name, properties } = json;
-            const { collection, creator } = properties;
-
-            const data = {
-                id: i,
-                uri,
-                collection: collection || "Sqwid",
-                createdAt: new Date (),
-                creator,
-                name
-            };
-            await dbCollection.doc (i.toString ()).set (data);
+            try {
+                const response = await axios (url);
+                const json = await response.data;
+                const { name, properties } = json;
+                const { collection, creator } = properties;
+    
+                const data = {
+                    id: i,
+                    uri,
+                    collection: collection || "Sqwid",
+                    createdAt: new Date (),
+                    creator,
+                    name
+                };
+                await dbCollection.doc (i.toString ()).set (data);
+            } catch (error) {
+                console.log (error);
+            }
         }
     }
     res.status (200).json ({
