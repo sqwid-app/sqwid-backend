@@ -1,6 +1,6 @@
 const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
-const { getEVMAddress } = require('../../lib/getEVMAddress');
+// const { getEVMAddress } = require('../../lib/getEVMAddress');
 
 const getSubstrateAddress = async (evmAddress) => {
     let res = await firebase.collection ('users').where ('evmAddress', '==', evmAddress).get ()

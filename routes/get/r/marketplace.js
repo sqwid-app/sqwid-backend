@@ -42,6 +42,7 @@ const fetchMarketplaceItems = async (req, res) => {
     const cContract = collectibleContract (provider);
     const items = await mContract.fetchMarketItems ();
     const itemsWithDetails = [];
+    console.log ('wot');
     for (let item of items) {
         try {
             let highestBid = await mContract.fetchHighestBid (item.itemId);
@@ -66,8 +67,8 @@ const fetchMarketplaceItems = async (req, res) => {
                 title: meta.name,
                 media: {
                     cover: getDwebURL (meta.image),
-                    mimeType: meta.properties.mimetype,
-                    media: getDwebURL (meta.properties.media)
+                    type: meta.properties.mimetype,
+                    url: getDwebURL (meta.properties.media)
                 }
             }
             console.log (obj);
@@ -137,7 +138,12 @@ const fetchMarketplaceItem = async (req, res) => {
         },
         title: meta.name,
         description: meta.description.length > 0 ? meta.description : 'No description',
-        contentURL: getDwebURL (meta.properties.media),
+        // contentURL: getDwebURL (meta.properties.media),
+        media: {
+            cover: getDwebURL (meta.image),
+            type: meta.properties.mimetype,
+            url: getDwebURL (meta.properties.media)
+        },
         properties: Object.keys (meta.properties.custom).map (key => {
             return {
                 key,
