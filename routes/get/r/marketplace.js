@@ -89,13 +89,13 @@ const marketplaceItemExists = async (itemId) => {
     return Number (item.itemId) !== 0;
 };
 const fetchMarketplaceItem = async (req, res) => {
-    console.time ('fetchMarketplaceItem');
+    // console.time ('fetchMarketplaceItem');
     const { itemId } = req.params;
     const { provider } = await getWallet ();
     const utilContract = utilityContract (provider);
 
     const item = await utilContract.fetchMarketItem (itemId);
-    console.timeLog ('fetchMarketplaceItem');
+    // console.timeLog ('fetchMarketplaceItem');
 
     if (Number (item.itemId) === 0) {
         res.json ({ error: 'item does not exist' });
@@ -110,7 +110,7 @@ const fetchMarketplaceItem = async (req, res) => {
     const collection = await byId ({ params: { id: meta.properties.collection } });
     const collectionData = collection.collection.data;
 
-    console.timeLog ('fetchMarketplaceItem');
+    // console.timeLog ('fetchMarketplaceItem');
 
     let info = {
         itemId: Number (item.itemId),
@@ -154,7 +154,7 @@ const fetchMarketplaceItem = async (req, res) => {
         royalty: (Number (item.royalty) / 100).toString ()
     };
 
-    console.timeEnd ('fetchMarketplaceItem');
+    // console.timeEnd ('fetchMarketplaceItem');
 
     res.json (info);
 }
