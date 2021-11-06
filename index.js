@@ -17,7 +17,7 @@ app.use (cors ());
 app.use (express.json ());
 app.use (express.urlencoded ({extended: true}));
 
-app.use ('/api', getRoutes ());
+app.use ('/', getRoutes ());
 
 app.use(function (err, req, res, next) {
     console.error (err.stack)
