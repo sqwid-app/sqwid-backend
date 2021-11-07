@@ -84,64 +84,95 @@ const _fetchMarketplaceItems = async (req, res) => {
 };
 */
 
+const generateItemsDetails = async (items, collectionId = null) => {
+    let itemsWithDetails = [];
+    for (let item of items) {
+        if (item.itemId == 0) continue;
+        try {
+            const metaURI = getCloudflareURL (item.uri);
+            const mres = await axios (metaURI);
+            const meta = mres.data;
+            if (collectionId && meta.properties.collection !== collectionId) continue;
+
+            colres = await byId ({ params: { id: meta.properties.collection } });
+            if (!colres) continue;
+            
+            let collection = colres.collection.data;
+            let media = '';
+            if (meta.properties.mimetype.startsWith ('audio')) {
+                media = getCloudflareURL (meta.image);
+                meta.properties.mimetype = 'image';
+            } else if (meta.properties.mimetype.startsWith ('video')) {
+                media = getDwebURL (meta.properties.media);
+            } else if (meta.properties.mimetype.startsWith ('image')) {
+                media = getCloudflareURL (meta.image);
+            }
+            let obj = {
+                id: item.itemId.toString (),
+                name: meta.name,
+                isOnSale: item.isOnSale,
+                collection: {
+                    thumb: getCloudflareURL (collection.image),
+                    name: collection.name,
+                    id: meta.properties.collection
+                },
+                owner: {
+                thumb:`https://avatars.dicebear.com/api/identicon/${item.currentOwner}.svg`,
+                    name: await getNameByAddress (item.currentOwner),
+                    id: item.currentOwner,
+                    others: 1
+                },
+                creator: {
+                    thumb: `https://avatars.dicebear.com/api/identicon/${meta.properties.creator}.svg`,
+                    name: await getNameByAddress (meta.properties.creator),
+                    id: meta.properties.creator
+                },
+                media: {
+                    url: media,
+                    type: meta.properties.mimetype,
+                },
+                price: (Number (item.price) / (10 ** 18)).toString (),
+                highestBid: (Number (item.highestBid) / (10 ** 18)).toString (),
+                quantity: {
+                    available: Number (item.currentOwnerBalance),
+                    total: Number (item.totalSupply)
+                }
+            }
+            itemsWithDetails.push (obj);
+        } catch (err) {
+            // process err
+            // res.json ({
+            //     error: err
+            // });
+            return {
+                error: err
+            }
+        }
+    }
+    return itemsWithDetails;
+}
+
+const fetchMarketItemsFromSeller = async (req, res) => {
+    const { provider } = await getWallet ();
+    const { address } = req.params;
+
+    const utilContract = utilityContract (provider);
+
+    const items = await utilContract.fetchMarketItemsByOwner (address);
+
+    const itemsWithDetails = await generateItemsDetails (items);
+    res.json (itemsWithDetails);
+};
+
 const fetchMarketplaceItems = async (req, res) => {
     const { provider } = await getWallet ();
+    const { collectionId } = req.params;
     const utilContract = utilityContract (provider);
 
     const items = await utilContract.fetchMarketItems ();
     
-    const itemsWithDetails = [];
-    for (let item of items) {
-        const metaURI = getCloudflareURL (item.uri);
-        const mres = await axios (metaURI);
-        const meta = mres.data;
-
-        colres = await byId ({ params: { id: meta.properties.collection } });
-        if (!colres) continue;
-        
-        let collection = colres.collection.data;
-        let media = '';
-        if (meta.properties.mimetype.startsWith ('audio')) {
-            media = getCloudflareURL (meta.image);
-            meta.properties.mimetype = 'image';
-        } else if (meta.properties.mimetype.startsWith ('video')) {
-            media = getDwebURL (meta.properties.media);
-        } else if (meta.properties.mimetype.startsWith ('image')) {
-            media = getCloudflareURL (meta.image);
-        }
-        let obj = {
-            id: item.itemId.toString (),
-            name: meta.name,
-            collection: {
-                thumb: getCloudflareURL (collection.image),
-                name: collection.name,
-                id: meta.properties.collection
-            },
-            owner: {
-			thumb:`https://avatars.dicebear.com/api/identicon/${item.currentOwner}.svg`,
-                name: await getNameByAddress (item.currentOwner),
-                id: item.currentOwner,
-                others: 1
-            },
-            creator: {
-                thumb: `https://avatars.dicebear.com/api/identicon/${meta.properties.creator}.svg`,
-                name: await getNameByAddress (meta.properties.creator),
-                id: meta.properties.creator
-            },
-            media: {
-                url: media,
-                type: meta.properties.mimetype,
-            },
-            price: (Number (item.price) / (10 ** 18)).toString (),
-            highestBid: (Number (item.highestBid) / (10 ** 18)).toString (),
-            quantity: {
-                available: Number (item.currentOwnerBalance),
-                total: Number (item.totalSupply)
-            }
-        }
-        itemsWithDetails.push (obj);
-    }
-
+    const itemsWithDetails = await generateItemsDetails (items, collectionId);
+    
     res.json (itemsWithDetails);
 };
 
@@ -149,66 +180,67 @@ const fetchMarketplaceItem = async (req, res) => {
     const { itemId } = req.params;
     const { provider } = await getWallet ();
     const utilContract = utilityContract (provider);
+    try {
+        const item = await utilContract.fetchMarketItem (itemId);
 
-    const item = await utilContract.fetchMarketItem (itemId);
-
-    if (Number (item.itemId) === 0) {
-        res.json ({ error: 'item does not exist' });
-        return;
-    }
-
-    const metaURI = getCloudflareURL (item.uri);
-    const mres = await axios (metaURI);
-    const meta = mres.data;
-    const creatorEVMAddress = meta.properties.creator;
-
-    const collection = await byId ({ params: { id: meta.properties.collection } });
-    const collectionData = collection.collection.data;
-
-    let info = {
-        itemId: Number (item.itemId),
-        isOnSale: item.onSale,
-        price: (Number (item.price) / (10 ** 18)).toString (),
-        owners: {
-            current: {
-                id: item.currentOwner,
-                name: await getNameByAddress (item.currentOwner),
-                quantity: {
-                    owns: Number (item.currentOwnerBalance),
-                    total: Number (item.totalSupply)
-                }
+        if (Number (item.itemId) === 0) {
+            res.json ({ error: 'item does not exist' });
+            return;
+        }
+    
+        const metaURI = getCloudflareURL (item.uri);
+        const mres = await axios (metaURI);
+        const meta = mres.data;
+        const creatorEVMAddress = meta.properties.creator;
+    
+        const collection = await byId ({ params: { id: meta.properties.collection } });
+        const collectionData = collection.collection.data;
+        let info = {
+            itemId: Number (item.itemId),
+            isOnSale: item.isOnSale,
+            price: (Number (item.price) / (10 ** 18)).toString (),
+            owners: {
+                current: {
+                    id: item.currentOwner,
+                    name: await getNameByAddress (item.currentOwner),
+                    quantity: {
+                        owns: Number (item.currentOwnerBalance),
+                        total: Number (item.totalSupply)
+                    }
+                },
+                total: 1
             },
-            total: 1
-        },
-        creator: {
-            id: creatorEVMAddress,
-            name: await getNameByAddress (creatorEVMAddress)
-        },
-        collection: {
-            name: collectionData.name,
-            id: meta.properties.collection,
-            cover: getCloudflareURL (collectionData.image),
-        },
-        title: meta.name,
-        description: meta.description.length > 0 ? meta.description : 'No description',
-        media: {
-            cover: getDwebURL (meta.image),
-            type: meta.properties.mimetype,
-            url: getDwebURL (meta.properties.media)
-        },
-        properties: Object.keys (meta.properties.custom).map (key => {
-            return {
-                key,
-                value: meta.properties.custom [key]
-            }
-        }),
-        highestBid: (Number (item.highestBid) / (10 ** 18)).toString (),
-        royalty: (Number (item.royalty) / 100).toString ()
-    };
-
-    // console.timeEnd ('fetchMarketplaceItem');
-
-    res.json (info);
+            creator: {
+                id: creatorEVMAddress,
+                name: await getNameByAddress (creatorEVMAddress)
+            },
+            collection: {
+                name: collectionData.name,
+                id: meta.properties.collection,
+                cover: getCloudflareURL (collectionData.image),
+            },
+            title: meta.name,
+            description: meta.description.length > 0 ? meta.description : 'No description',
+            media: {
+                cover: getCloudflareURL (meta.image),
+                type: meta.properties.mimetype,
+                url: getDwebURL (meta.properties.media)
+            },
+            properties: Object.keys (meta.properties.custom).map (key => {
+                return {
+                    key,
+                    value: meta.properties.custom [key]
+                }
+            }),
+            highestBid: (Number (item.highestBid) / (10 ** 18)).toString (),
+            royalty: (Number (item.royalty) / 100).toString ()
+        };
+    
+        res.json (info);
+    } catch (err) {
+        console.log (err);
+        res.json ({ error: "there's been an error eh" });
+    }
 }
 
 const marketplaceItemExists = async (itemId) => {
@@ -286,6 +318,8 @@ module.exports = {
         const router = Router ();
     
         router.get ('/fetchMarketItems', fetchMarketplaceItems);
+        router.get ('/fetchMarketItems/collection/:collectionId', fetchMarketplaceItems);
+        router.get ('/fetchMarketItems/owner/:address', fetchMarketItemsFromSeller);
         router.get ('/fetchMarketItem/:itemId', fetchMarketplaceItem);
         
         return router;

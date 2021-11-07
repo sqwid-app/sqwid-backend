@@ -1,245 +1,316 @@
 let ABI = [
     {
-        "anonymous": false,
-        "inputs": [
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "itemId",
+          "type": "uint256"
+        }
+      ],
+      "name": "fetchMarketItem",
+      "outputs": [
+        {
+          "components": [
             {
-                "indexed": true,
-                "internalType": "address",
-                "name": "previousOwner",
-                "type": "address"
+              "internalType": "uint256",
+              "name": "itemId",
+              "type": "uint256"
             },
             {
-                "indexed": true,
-                "internalType": "address",
-                "name": "newOwner",
-                "type": "address"
+              "internalType": "bool",
+              "name": "isOnSale",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "currentOwner",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "currentOwnerBalance",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalSupply",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "highestBid",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "royalty",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "uri",
+              "type": "string"
             }
-        ],
-        "name": "OwnershipTransferred",
-        "type": "event"
+          ],
+          "internalType": "struct SqwidMarketUtility.MarketItemReturn",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-        "inputs": [
+      "inputs": [],
+      "name": "fetchMarketItems",
+      "outputs": [
+        {
+          "components": [
             {
-                "internalType": "uint256",
-                "name": "itemId",
-                "type": "uint256"
-            }
-        ],
-        "name": "fetchMarketItem",
-        "outputs": [
+              "internalType": "uint256",
+              "name": "itemId",
+              "type": "uint256"
+            },
             {
-                "components": [
-                    {
-                        "internalType": "uint256",
-                        "name": "itemId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "bool",
-                        "name": "isOnSale",
-                        "type": "bool"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "price",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "currentOwner",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "currentOwnerBalance",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "totalSupply",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "highestBid",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "royalty",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "uri",
-                        "type": "string"
-                    }
-                ],
-                "internalType": "struct SqwidMarketUtility.MarketItemReturn",
-                "name": "",
-                "type": "tuple"
+              "internalType": "bool",
+              "name": "isOnSale",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "currentOwner",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "currentOwnerBalance",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalSupply",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "highestBid",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "royalty",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "uri",
+              "type": "string"
             }
-        ],
-        "stateMutability": "view",
-        "type": "function"
+          ],
+          "internalType": "struct SqwidMarketUtility.MarketItemReturn[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-        "inputs": [],
-        "name": "fetchMarketItems",
-        "outputs": [
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "fetchMarketItemsByOwner",
+      "outputs": [
+        {
+          "components": [
             {
-                "components": [
-                    {
-                        "internalType": "uint256",
-                        "name": "itemId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "bool",
-                        "name": "isOnSale",
-                        "type": "bool"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "price",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "currentOwner",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "currentOwnerBalance",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "totalSupply",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "highestBid",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "royalty",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "uri",
-                        "type": "string"
-                    }
-                ],
-                "internalType": "struct SqwidMarketUtility.MarketItemReturn[]",
-                "name": "",
-                "type": "tuple[]"
+              "internalType": "uint256",
+              "name": "itemId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "isOnSale",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "currentOwner",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "currentOwnerBalance",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalSupply",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "highestBid",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "royalty",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "uri",
+              "type": "string"
             }
-        ],
-        "stateMutability": "view",
-        "type": "function"
+          ],
+          "internalType": "struct SqwidMarketUtility.MarketItemReturn[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-        "inputs": [],
-        "name": "getERC1155Address",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
+      "inputs": [],
+      "name": "getERC1155Address",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-        "inputs": [],
-        "name": "getMarketplaceAddress",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
+      "inputs": [],
+      "name": "getMarketplaceAddress",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-        "inputs": [],
-        "name": "owner",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-        "inputs": [],
-        "name": "renounceOwnership",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "erc1155Address",
-                "type": "address"
-            }
-        ],
-        "name": "setERC1155",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "erc1155Address",
+          "type": "address"
+        }
+      ],
+      "name": "setERC1155",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "marketplaceAddress",
-                "type": "address"
-            }
-        ],
-        "name": "setMarketplace",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "marketplaceAddress",
+          "type": "address"
+        }
+      ],
+      "name": "setMarketplace",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "newOwner",
-                "type": "address"
-            }
-        ],
-        "name": "transferOwnership",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
     }
-];
+  ];
 
 module.exports = {
     ABI
