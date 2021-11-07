@@ -36,7 +36,8 @@ const getEVMAddress = async (address) => {
 }
 
 // returns all marketplace items
-const fetchMarketplaceItems = async (req, res) => {
+/*
+const _fetchMarketplaceItems = async (req, res) => {
     const { provider } = await getWallet ();
     const mContract = marketplaceContract (provider);
     const cContract = collectibleContract (provider);
@@ -81,21 +82,75 @@ const fetchMarketplaceItems = async (req, res) => {
     // return itemsWithDetails;
     res.json (itemsWithDetails);
 };
+*/
 
-const marketplaceItemExists = async (itemId) => {
-    const { provider } = await Interact ();
-    const mContract = marketplaceContract (provider);
-    const item = await mContract.fetchMarketItem (itemId);
-    return Number (item.itemId) !== 0;
+const fetchMarketplaceItems = async (req, res) => {
+    const { provider } = await getWallet ();
+    const utilContract = utilityContract (provider);
+
+    const items = await utilContract.fetchMarketItems ();
+    
+    const itemsWithDetails = [];
+    for (let item of items) {
+        const metaURI = getCloudflareURL (item.uri);
+        const mres = await axios (metaURI);
+        const meta = mres.data;
+
+        colres = await byId ({ params: { id: meta.properties.collection } });
+        if (!colres) continue;
+        
+        let collection = colres.collection.data;
+        let media = '';
+        if (meta.properties.mimetype.startsWith ('audio')) {
+            media = getCloudflareURL (meta.image);
+            meta.properties.mimetype = 'image';
+        } else if (meta.properties.mimetype.startsWith ('video')) {
+            media = getDwebURL (meta.properties.media);
+        } else if (meta.properties.mimetype.startsWith ('image')) {
+            media = getCloudflareURL (meta.image);
+        }
+        let obj = {
+            id: item.itemId.toString (),
+            name: meta.name,
+            collection: {
+                thumb: getCloudflareURL (collection.image),
+                name: collection.name,
+                id: meta.properties.collection
+            },
+            owner: {
+			thumb:`https://avatars.dicebear.com/api/identicon/${item.currentOwner}.svg`,
+                name: await getNameByAddress (item.currentOwner),
+                id: item.currentOwner,
+                others: 1
+            },
+            creator: {
+                thumb: `https://avatars.dicebear.com/api/identicon/${meta.properties.creator}.svg`,
+                name: await getNameByAddress (meta.properties.creator),
+                id: meta.properties.creator
+            },
+            media: {
+                url: media,
+                type: meta.properties.mimetype,
+            },
+            price: (Number (item.price) / (10 ** 18)).toString (),
+            highestBid: (Number (item.highestBid) / (10 ** 18)).toString (),
+            quantity: {
+                available: Number (item.currentOwnerBalance),
+                total: Number (item.totalSupply)
+            }
+        }
+        itemsWithDetails.push (obj);
+    }
+
+    res.json (itemsWithDetails);
 };
+
 const fetchMarketplaceItem = async (req, res) => {
-    // console.time ('fetchMarketplaceItem');
     const { itemId } = req.params;
     const { provider } = await getWallet ();
     const utilContract = utilityContract (provider);
 
     const item = await utilContract.fetchMarketItem (itemId);
-    // console.timeLog ('fetchMarketplaceItem');
 
     if (Number (item.itemId) === 0) {
         res.json ({ error: 'item does not exist' });
@@ -109,8 +164,6 @@ const fetchMarketplaceItem = async (req, res) => {
 
     const collection = await byId ({ params: { id: meta.properties.collection } });
     const collectionData = collection.collection.data;
-
-    // console.timeLog ('fetchMarketplaceItem');
 
     let info = {
         itemId: Number (item.itemId),
@@ -138,7 +191,6 @@ const fetchMarketplaceItem = async (req, res) => {
         },
         title: meta.name,
         description: meta.description.length > 0 ? meta.description : 'No description',
-        // contentURL: getDwebURL (meta.properties.media),
         media: {
             cover: getDwebURL (meta.image),
             type: meta.properties.mimetype,
@@ -158,74 +210,12 @@ const fetchMarketplaceItem = async (req, res) => {
 
     res.json (info);
 }
-// returns a certain marketplace item
-const fetchMarketplaceItem_old = async (req, res) => {
-    const itemId = req.params.itemId;
-    const { provider } = await getWallet ();
-    const mContract = marketplaceContract (provider);
-    const cContract = collectibleContract (provider);
-    const item = await mContract.fetchMarketItem (itemId);
-    if (Number (item.itemId) === 0) {
-        res.json ({ error: 'item does not exist' });
-        return;
-    }
-    let info;
-    try {
-        let metaURI = await cContract.uri (item.tokenId);
-        let res = await axios (getDwebURL (metaURI));
-        let meta = res.data;
-        const creator = meta.properties.creator;
-        res = await byId ({ params: { id: meta.properties.collection } });
-        let collection = res.collection.data;
-        if (!res) {
-            res.json ({ error: "item doesn't exist" });
-            return;
-        }
-        const owners = await cContract.getOwners (Number (item.tokenId));
-        const creatorEVMAddress = await getEVMAddress (creator);
-        info = {
-            itemId: Number (item.itemId),
-            isOnSale: item.onSale,
-            price: (Number (item.price) / 10 ** 18).toString (),
-            owners: {
-                current: {
-                    id: item.seller,
-                    name: await getNameByAddress (item.seller),
-                    quantity: {
-                        owns: (await cContract.balanceOf (creatorEVMAddress, Number (item.tokenId))).toString (),
-                        total: (await cContract.getTokenSupply (Number (item.tokenId))).toString ()
-                    }
-                },
-                total: owners.length.toString ()
-            },
-            creator: {
-                id: creatorEVMAddress,
-                name: await getNameByAddress (creator)
-            },
-            collection: {
-                name: collection.name,
-                id: meta.properties.collection,
-                cover: getDwebURL (collection.image),
-            },
-            title: meta.name,
-            description: meta.description.length > 0 ? meta.description : 'No description',
-            contentURL: getDwebURL (meta.properties.media),
-            properties: Object.keys (meta.properties.custom).map (key => {
-                return {
-                    key,
-                    value: meta.properties.custom[key]
-                }
-            }),
-            highestBid: (await mContract.fetchHighestBid (itemId)) [4].toString (),
-            royalty: Number ((await cContract.royaltyInfo (Number (item.tokenId), 10000)) [1] / 100).toString (),
-        }
-    } catch (err) {
-        console.log (err);
-        // handle err
-        res.json ({ error: "item doesn't exist" });
-    }
 
-    res.json (info);
+const marketplaceItemExists = async (itemId) => {
+    const { provider } = await Interact ();
+    const mContract = marketplaceContract (provider);
+    const item = await mContract.fetchMarketItem (itemId);
+    return Number (item.itemId) !== 0;
 };
 
 // puts an item up for sale (owner only)
