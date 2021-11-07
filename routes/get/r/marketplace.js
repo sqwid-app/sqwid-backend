@@ -161,7 +161,8 @@ const fetchMarketItemsFromSeller = async (req, res) => {
     const items = await utilContract.fetchMarketItemsByOwner (address);
 
     const itemsWithDetails = await generateItemsDetails (items);
-    res.json (itemsWithDetails);
+    res?.json (itemsWithDetails);
+    return itemsWithDetails;
 };
 
 const fetchMarketplaceItems = async (req, res) => {
@@ -173,7 +174,30 @@ const fetchMarketplaceItems = async (req, res) => {
     
     const itemsWithDetails = await generateItemsDetails (items, collectionId);
     
-    res.json (itemsWithDetails);
+    res?.json (itemsWithDetails);
+    return itemsWithDetails;
+};
+
+const fetchCollection = async (req, res) => {
+    const { collectionId } = req.params;
+
+    colres = await byId ({ params: { id: collectionId } });
+    const items = await fetchMarketplaceItems ({ params: { collectionId } });
+
+    const ownerAddress = await getEVMAddress (colres.collection.data.owner);
+    let collection = {
+        name: colres.collection.data.name,
+        creator: {
+            id: ownerAddress,
+            name: await getNameByAddress (colres.collection.data.owner),
+            thumb: `https://avatars.dicebear.com/api/identicon/${ownerAddress}.svg`
+        },
+        thumb: getCloudflareURL (colres.collection.data.image),
+        content: items
+    }
+
+    res?.json (collection);
+    return collection;
 };
 
 const fetchMarketplaceItem = async (req, res) => {
@@ -244,10 +268,10 @@ const fetchMarketplaceItem = async (req, res) => {
 }
 
 const marketplaceItemExists = async (itemId) => {
-    const { provider } = await Interact ();
-    const mContract = marketplaceContract (provider);
-    const item = await mContract.fetchMarketItem (itemId);
-    return Number (item.itemId) !== 0;
+    // const { provider } = await Interact ();
+    // const mContract = marketplaceContract (provider);
+    // const item = await mContract.fetchMarketItem (itemId);
+    // return Number (item.itemId) !== 0;
 };
 
 // puts an item up for sale (owner only)
@@ -266,8 +290,21 @@ const buyNow = async (itemId) => {
 };
 
 // fetch all bids for an item
-const fetchBids = async (itemId) => {
+const fetchBids = async (req, res) => {
+    const { provider } = await getWallet ();
+    const { itemId } = req.params;
+    const mContract = marketplaceContract (provider);
 
+    try {
+        const bids = await mContract.fetchBids (Number (itemId));
+        res.json (bids);
+
+    } catch (err) {
+        console.log (err);
+        res.json ({
+            error: err
+        });
+    }
 };
 
 // add a bid to an item
@@ -318,9 +355,10 @@ module.exports = {
         const router = Router ();
     
         router.get ('/fetchMarketItems', fetchMarketplaceItems);
-        router.get ('/fetchMarketItems/collection/:collectionId', fetchMarketplaceItems);
+        router.get ('/fetchMarketItems/collection/:collectionId', fetchCollection);
         router.get ('/fetchMarketItems/owner/:address', fetchMarketItemsFromSeller);
         router.get ('/fetchMarketItem/:itemId', fetchMarketplaceItem);
+        router.get ('/bids/:itemId', fetchBids);
         
         return router;
     }

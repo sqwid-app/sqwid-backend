@@ -31,7 +31,7 @@ let upload = async (req, res, next) => {
     let col = req.body.collection || "Sqwid";
     const collection = await firebase.collection ('collections').doc (col).get ();
     let creator = await getEVMAddress (req.user.address);
-    console.log (creator);
+    // console.log (creator);
 
     if (collection.exists) {
         if (collection.data ().owner === req.user.address || col === "Sqwid") {
