@@ -20,7 +20,7 @@ const cors = require ('cors');
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
     limits: {
-        fileSize: 100000000
+        fileSize: 3000000000
     },
 });
 
