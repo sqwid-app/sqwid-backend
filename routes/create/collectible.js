@@ -5,16 +5,17 @@ const { verify } = require ('../../middleware/auth');
 const multer = require ('multer');
 const { NFTStorage, File } = require ('nft.storage');
 
-const ethers = require ('ethers');
+// const ethers = require ('ethers');
 
-const { getWallet } = require ('../../lib/getWallet');
+// const { getWallet } = require ('../../lib/getWallet');
 
-const { ABI } = require ('../../contracts/SqwidERC1155');
+// const { ABI } = require ('../../contracts/SqwidERC1155');
 
-const { getCloudflareURL } = require ('../../lib/getIPFSURL');
-const { default: axios } = require('axios');
+// const { getCloudflareURL } = require ('../../lib/getIPFSURL');
+// const { default: axios } = require('axios');
 
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
+const cors = require ('cors');
 
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
@@ -70,38 +71,38 @@ let upload = async (req, res, next) => {
 }
 
 let sync = async (req, res, next) => {
-    const { provider } = await getWallet ();
-    const contract = new ethers.Contract (process.env.COLLECTIBLE_CONTRACT_ADDRESS, ABI, provider);
+    // const { provider } = await getWallet ();
+    // const contract = new ethers.Contract (process.env.COLLECTIBLE_CONTRACT_ADDRESS, ABI, provider);
 
-    const currentId = Number (await contract.currentId ());
+    // const currentId = Number (await contract.currentId ());
 
-    const dbCollection = firebase.collection ('collectibles');
+    // const dbCollection = firebase.collection ('collectibles');
 
-    for (let i = currentId; i > Math.max (currentId - 5, 0); i--) {
-        const uri = await contract.uri (i);
-        let url = getCloudflareURL (uri);
-        const doc = await dbCollection.where ('id', '==', i).get ();
-        if (doc.empty) {
-            try {
-                const response = await axios (url);
-                const json = await response.data;
-                const { name, properties } = json;
-                const { collection, creator } = properties;
+    // for (let i = currentId; i > Math.max (currentId - 5, 0); i--) {
+    //     const uri = await contract.uri (i);
+    //     let url = getCloudflareURL (uri);
+    //     const doc = await dbCollection.where ('id', '==', i).get ();
+    //     if (doc.empty) {
+    //         try {
+    //             const response = await axios (url);
+    //             const json = await response.data;
+    //             const { name, properties } = json;
+    //             const { collection, creator } = properties;
     
-                const data = {
-                    id: i,
-                    uri,
-                    collection: collection || "Sqwid",
-                    createdAt: new Date (),
-                    creator,
-                    name
-                };
-                await dbCollection.doc (i.toString ()).set (data);
-            } catch (err) {
-                console.log (err);
-            }
-        }
-    }
+    //             const data = {
+    //                 id: i,
+    //                 uri,
+    //                 collection: collection || "Sqwid",
+    //                 createdAt: new Date (),
+    //                 creator,
+    //                 name
+    //             };
+    //             await dbCollection.doc (i.toString ()).set (data);
+    //         } catch (err) {
+    //             console.log (err);
+    //         }
+    //     }
+    // }
     res.status (200).json ({
         message: 'Sync complete.'
     });
@@ -109,6 +110,7 @@ let sync = async (req, res, next) => {
 
 module.exports = () => {
     const router = Router ();
+    router.use (cors ());
 
     router.post ('/', [ verify, mediaUpload.fields ([{ name: 'fileData', maxCount: 1 }, { name: 'coverData', maxCount: 1 }]) ], upload);
     router.get ('/sync', sync);
