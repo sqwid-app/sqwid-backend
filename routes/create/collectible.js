@@ -112,7 +112,7 @@ module.exports = () => {
     const router = Router ();
     router.use (cors ());
 
-    router.post ('/', [ verify, mediaUpload.fields ([{ name: 'fileData', maxCount: 1 }, { name: 'coverData', maxCount: 1 }]) ], upload);
+    router.post ('/', [ verify, mediaUpload.fields ([{ name: 'fileData', maxCount: 1 }, { name: 'coverData', maxCount: 1 }]), cors ({ origin: '*' }) ], upload);
     router.get ('/sync', sync);
 
     return router;
