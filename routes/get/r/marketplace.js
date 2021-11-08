@@ -289,6 +289,23 @@ const buyNow = async (itemId) => {
 
 };
 
+const formatBids = async (bids) => {
+    bids = bids.filter (bid => bid.active === true);
+    const formatted = await Promise.all (bids.map (async bid => {
+        return {
+            id: Number (bid.bidId),
+            bidder: {
+                name: await getNameByAddress (bid.bidder),
+                id: bid.bidder,
+                thumb: `https://avatars.dicebear.com/api/identicon/${bid.bidder}.svg`
+            },
+            price: (Number (bid.price) / (10 ** 18)).toString (),
+            copies: Number (bid.amount).toString (),
+        }
+    }));
+    return formatted;
+};
+
 // fetch all bids for an item
 const fetchBids = async (req, res) => {
     const { provider } = await getWallet ();
@@ -297,7 +314,9 @@ const fetchBids = async (req, res) => {
 
     try {
         const bids = await mContract.fetchBids (Number (itemId));
-        res.json (bids);
+        const formatted = await formatBids (bids);
+        // console.log (bids);
+        res.json (formatted);
 
     } catch (err) {
         console.log (err);
