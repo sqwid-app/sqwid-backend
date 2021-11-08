@@ -20,10 +20,9 @@ const cors = require ('cors');
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
     limits: {
-        fileSize: 3000000000
+        fileSize: 30000000
     },
 });
-
 
 let upload = async (req, res, next) => {
     res.setHeader ('Access-Control-Allow-Origin', '*');
