@@ -7,16 +7,15 @@ const port = process.env.PORT || 8080;
 
 const firebase = require ('./lib/firebase');
 
-const getRoutes = require ('./routes/index');
-
 const cors = require ('cors');
 
 app.use (morgan ('dev'));
 app.use (helmet ());
-app.use (cors ());
+app.use (cors ({origin: '*'}));
 app.use (express.json ());
 app.use (express.urlencoded ({extended: true}));
 
+const getRoutes = require ('./routes/index');
 app.use ('/', getRoutes ());
 
 app.use(function (err, req, res, next) {
