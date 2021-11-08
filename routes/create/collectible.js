@@ -30,13 +30,13 @@ let upload = async (req, res, next) => {
     const cover = req.files.coverData ? req.files.coverData [0] : req.files.fileData [0];
     const file = (req.files.coverData && (req.files.coverData [0] === req.files.fileData [0])) ? null : req.files.fileData [0];
 
-    let col = req.body.collection || "Sqwid";
+    let col = req.body.collection || "ASwOXeRM5DfghnURP4g2";
     const collection = await firebase.collection ('collections').doc (col).get ();
     let creator = await getEVMAddress (req.user.address);
     // console.log (creator);
 
     if (collection.exists) {
-        if (collection.data ().owner === req.user.address || col === "Sqwid") {
+        if (collection.data ().owner === req.user.address || col === "ASwOXeRM5DfghnURP4g2") {
             try {
                 const metadata = await client.store ({
                     name: req.body.name || "Empty Sqwid",
