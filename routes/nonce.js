@@ -29,7 +29,7 @@ let nonce = (req, res) => {
                 address: req.query.address,
                 nonce,
                 evmAddress,
-                displayName: req.query.address,
+                displayName: evmAddress,
                 bio: ''
             }).then (() => {
                 res.json ({
