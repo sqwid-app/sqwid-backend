@@ -24,6 +24,7 @@ const mediaUpload = multer ({
     },
 });
 
+
 let upload = async (req, res, next) => {
     res.setHeader ('Access-Control-Allow-Origin', '*');
     const client = new NFTStorage ({ token: process.env.NFT_STORAGE_API_KEY });
