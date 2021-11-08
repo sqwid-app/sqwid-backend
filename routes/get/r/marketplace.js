@@ -248,7 +248,7 @@ const fetchMarketplaceItem = async (req, res) => {
             media: {
                 cover: getCloudflareURL (meta.image),
                 type: meta.properties.mimetype,
-                url: meta.properties.mimtype.startsWith ('image') ? getCloudflareURL (meta.properties.media) : getDwebURL (meta.properties.media)
+                url: meta.properties.mimetype.startsWith ('image') ? getCloudflareURL (meta.properties.media) : getDwebURL (meta.properties.media)
             },
             properties: Object.keys (meta.properties.custom).map (key => {
                 return {
