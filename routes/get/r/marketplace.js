@@ -86,68 +86,122 @@ const _fetchMarketplaceItems = async (req, res) => {
 
 const generateItemsDetails = async (items, collectionId = null) => {
     let itemsWithDetails = [];
+    let metaURLs = [];
+    let metas = [];
+    items = items.filter (item => item.itemId && item.uri.length);
     for (let item of items) {
-        if (item.itemId == 0) continue;
-        try {
-            const metaURI = getCloudflareURL (item.uri);
-            const mres = await axios (metaURI);
-            const meta = mres.data;
-            if (collectionId && meta.properties.collection !== collectionId) continue;
+        metaURLs.push (getCloudflareURL (item.uri));
+    }
+    // console.time ('fetchMetas');
+    try {
+        // let promises = metaURLs.map ((uri, index) => new Promise ((resolve, reject) => {
+        //     axios (uri).then (res => {
+        //         resolve ({ 
+        //             index,
+        //             data: res.data
+        //         });
+        //     });
+        // }));
+        // const res = await Promise.all (promises);
+        // res.forEach (r => metas [r.index] = r.data);
+        metas = await axios.all (metaURLs.map (uri => axios (uri)));
+        metas = metas.map (r => r.data);
+    } catch (err) {
+        return {
+            error: err
+        }
+    }
+    // console.timeEnd ('fetchMetas');
 
-            colres = await byId ({ params: { id: meta.properties.collection } });
-            if (!colres) continue;
-            
-            let collection = colres.collection.data;
-            let media = '';
-            if (meta.properties.mimetype.startsWith ('audio')) {
-                media = getCloudflareURL (meta.image);
-                meta.properties.mimetype = 'image';
-            } else if (meta.properties.mimetype.startsWith ('video')) {
-                media = getDwebURL (meta.properties.media);
-            } else if (meta.properties.mimetype.startsWith ('image')) {
-                media = getCloudflareURL (meta.image);
-            }
-            let obj = {
-                id: item.itemId.toString (),
-                name: meta.name,
-                isOnSale: item.isOnSale,
-                collection: {
-                    thumb: getCloudflareURL (collection.image),
-                    name: collection.name,
-                    id: meta.properties.collection
-                },
-                owner: {
-                thumb:`https://avatars.dicebear.com/api/identicon/${item.currentOwner}.svg`,
-                    name: await getNameByAddress (item.currentOwner),
-                    id: item.currentOwner,
-                    others: 1
-                },
-                creator: {
-                    thumb: `https://avatars.dicebear.com/api/identicon/${meta.properties.creator}.svg`,
-                    name: await getNameByAddress (meta.properties.creator),
-                    id: meta.properties.creator
-                },
-                media: {
-                    url: media,
-                    type: meta.properties.mimetype,
-                },
-                price: (Number (item.price) / (10 ** 18)).toString (),
-                highestBid: (Number (item.highestBid) / (10 ** 18)).toString (),
-                quantity: {
-                    available: Number (item.currentOwnerBalance),
-                    total: Number (item.totalSupply)
-                }
-            }
-            itemsWithDetails.push (obj);
-        } catch (err) {
-            // process err
-            // res.json ({
-            //     error: err
-            // });
-            return {
-                error: err
+    if (collectionId) {
+        let newItems = [];
+        let newMetas = [];
+        for (let i = 0; i < items.length; i++) {
+            if (metas [i].properties.collection === collectionId) {
+                newItems.push (items [i]);
+                newMetas.push (metas [i]);
             }
         }
+        items = newItems;
+        metas = newMetas;
+    }
+
+    let collectionIds = [];
+    let addresses = {};
+    for (let i = 0; i < items.length; i++) {
+        collectionIds.push (metas [i].properties.collection);
+        addresses [items [i].currentOwner] = items [i].currentOwner;
+        addresses [metas [i].properties.creator] = metas [i].properties.creator;
+    }
+    // console.time ('fetchCollections');
+    let collections = [];
+    try {
+        collections = await Promise.all (collectionIds.map (id => byId ({ params: { id } })));
+    } catch (err) {
+        return {
+            error: err
+        }
+    }
+    collections = collections.map (c => c.collection.data);
+    // console.timeEnd ('fetchCollections');
+
+    let userIds = Object.keys (addresses);
+
+    // console.time ('fetchUsers');
+    let userNames = [];
+    try {
+        userNames = await Promise.all (userIds.map (id => getNameByAddress (id)));
+    } catch (err) {
+        return {
+            error: err
+        }
+    }
+    // console.timeEnd ('fetchUsers');
+
+    for (let i = 0; i < items.length; i++) {
+        let media = '';
+        let mime = metas [i].properties.mimetype;
+        if (mime.startsWith ('audio')) {
+            media = getCloudflareURL (metas [i].image);
+            metas [i].properties.mimetype = 'image';
+        } else if (mime.startsWith ('video')) {
+            media = getDwebURL (metas [i].properties.media);
+        } else if (mime.startsWith ('image')) {
+            media = getCloudflareURL (metas [i].image);
+        }
+
+        let obj = {
+            id: items [i].itemId.toString (),
+            name: metas [i].name,
+            isOnSale: items [i].isOnSale,
+            collection: {
+                thumb: getCloudflareURL (collections [i].image),
+                name: collections [i].name,
+                id: metas [i].properties.collection
+            },
+            owner: {
+                thumb: `https://avatars.dicebear.com/api/identicon/${items [i].currentOwner}.svg`,
+                name: userNames [userIds.indexOf (items [i].currentOwner)],
+                id: items [i].currentOwner,
+                others: 1
+            },
+            creator: {
+                thumb: `https://avatars.dicebear.com/api/identicon/${metas [i].properties.creator}.svg`,
+                name: userNames [userIds.indexOf (metas [i].properties.creator)],
+                id: metas [i].properties.creator,
+            },
+            media: {
+                type: mime,
+                url: media
+            },
+            price: (Number (items [i].price) / (10 ** 18)).toString (),
+            highestBid: (Number (items [i].highestBid) / (10 ** 18)).toString (),
+            quantity: {
+                available: Number (items [i].currentOwnerBalance),
+                total: Number (items [i].totalSupply)
+            }
+        }
+        itemsWithDetails.push (obj);
     }
     return itemsWithDetails;
 }
@@ -168,9 +222,11 @@ const fetchMarketItemsFromSeller = async (req, res) => {
 const fetchMarketplaceItems = async (req, res) => {
     const { provider } = await getWallet ();
     const { collectionId } = req.params;
+    // console.time ('fetchMarketplaceItem');
     const utilContract = utilityContract (provider);
 
     const items = await utilContract.fetchMarketItems ();
+    // console.timeEnd ('fetchMarketplaceItem');
     
     const itemsWithDetails = await generateItemsDetails (items, collectionId);
     
@@ -204,16 +260,19 @@ const fetchMarketplaceItem = async (req, res) => {
     const { itemId } = req.params;
     const { provider } = await getWallet ();
     const utilContract = utilityContract (provider);
+    // console.time ('fetchMarketplaceItem');
     try {
         const item = await utilContract.fetchMarketItem (itemId);
-
+        // console.timeLog ('fetchMarketplaceItem');
         if (Number (item.itemId) === 0) {
             res.json ({ error: 'item does not exist' });
             return;
         }
-    
+        
         const metaURI = getCloudflareURL (item.uri);
+        // console.timeLog ('fetchMarketplaceItem');
         const mres = await axios (metaURI);
+        // console.timeEnd ('fetchMarketplaceItem');
         const meta = mres.data;
         const creatorEVMAddress = meta.properties.creator;
     
