@@ -8,10 +8,11 @@ const axios = require ('axios');
 const { getWallet } = require ('../../../lib/getWallet');
 const { byId } = require ('../collections');
 const { getUser } = require ('../user');
+const getNetwork = require ('../../../lib/getNetwork');
 
-const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || process.env.COLLECTIBLE_CONTRACT_ADDRESS, collectibleContractABI, signerOrProvider);
-const marketplaceContract = (signerOrProvider) => new ethers.Contract (process.env.MARKETPLACE_CONTRACT_ADDRESS, marketplaceContractABI, signerOrProvider);
-const utilityContract = (signerOrProvider) => new ethers.Contract (process.env.UTILITY_CONTRACT_ADDRESS, utilityContractABI, signerOrProvider);
+const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 
 const getNameByAddress = async (address) => {
     try {
@@ -104,27 +105,56 @@ const generateItemsDetails = async (items, collectionId = null) => {
         // }));
         // const res = await Promise.all (promises);
         // res.forEach (r => metas [r.index] = r.data);
-        metas = await axios.all (metaURLs.map (uri => axios (uri)));
-        metas = metas.map (r => r.data);
+        // metas = await axios.all (metaURLs.map (uri => axios (uri)));
+        metas = await Promise.all (metaURLs.map (uri => {
+            return new Promise (resolve => {
+                axios (uri).then (res => {
+                    resolve (res.data);
+                }).catch (err => {
+                    resolve (null);
+                });
+            })
+        }));
+        // metas = metas.map (r => r.data);
     } catch (err) {
+        console.log (err);
         return {
             error: err
         }
     }
     // console.timeEnd ('fetchMetas');
 
-    if (collectionId) {
-        let newItems = [];
-        let newMetas = [];
-        for (let i = 0; i < items.length; i++) {
-            if (metas [i].properties.collection === collectionId) {
+    // if (collectionId) {
+    //     let newItems = [];
+    //     let newMetas = [];
+    //     for (let i = 0; i < items.length; i++) {
+    //         if (metas [i].properties.collection === collectionId) {
+    //             newItems.push (items [i]);
+    //             newMetas.push (metas [i]);
+    //         }
+    //     }
+    //     items = newItems;
+    //     metas = newMetas;
+    // }
+
+    let newItems = [];
+    let newMetas = [];
+    for (let i = 0; i < items.length; i++) {
+        if (metas [i]) {
+            if (collectionId) {
+                if (metas [i].properties.collection === collectionId) {
+                    newItems.push (items [i]);
+                    newMetas.push (metas [i]);
+                }
+            } else {
                 newItems.push (items [i]);
                 newMetas.push (metas [i]);
             }
         }
-        items = newItems;
-        metas = newMetas;
+        
     }
+    items = newItems;
+    metas = newMetas;
 
     let collectionIds = [];
     let addresses = {};
