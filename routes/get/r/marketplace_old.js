@@ -23,21 +23,17 @@ const getNameByAddress = async (address) => {
     }
 }
 
-// const getEVMAddress = async (address) => {
-//     try {
-//         const { provider } = await getWallet ();
+const getEVMAddress = async (address) => {
+    try {
+        const { provider } = await getWallet ();
 
-//         address = await provider.api.query.evmAccounts.evmAddresses (address);
-//         address = (0, ethers.utils.getAddress) (address.toString ());
+        address = await provider.api.query.evmAccounts.evmAddresses (address);
+        address = (0, ethers.utils.getAddress) (address.toString ());
 
-//         return address;
-//     } catch (e) {
-//         return address;
-//     }
-// }
-
-const getCollectionByItemId = async (itemId) => {
-    return { id: '', name: '', cover: '' };
+        return address;
+    } catch (e) {
+        return address;
+    }
 }
 
 // returns all marketplace items
@@ -291,37 +287,30 @@ const fetchCollection = async (req, res) => {
 };
 
 const fetchMarketplaceItem = async (req, res) => {
-    const { itemId, position } = req.params;
+    const { itemId } = req.params;
     const { provider } = await getWallet ();
-    const marketContract = await marketplaceContract (provider);
-    const tokenContract = await collectibleContract (provider);
+    const utilContract = utilityContract (provider);
+    // console.time ('fetchMarketplaceItem');
     try {
-        const item = await marketContract.fetchItem (itemId);
-
+        const item = await utilContract.fetchMarketItem (itemId);
+        // console.timeLog ('fetchMarketplaceItem');
         if (Number (item.itemId) === 0) {
             res.json ({ error: 'item does not exist' });
             return;
         }
-
-        const tokenId = item.tokenId.toNumber ();
-        const tokenURI = await tokenContract.uri (tokenId);
-        const tokenOwners = await tokenContract.getOwners (tokenId);
-
-        const metaURI = getCloudflareURL (tokenURI);
-        console.log (metaURI);
+        
+        const metaURI = getCloudflareURL (item.uri);
+        // console.timeLog ('fetchMarketplaceItem');
         const mres = await axios (metaURI);
+        // console.timeEnd ('fetchMarketplaceItem');
         const meta = mres.data;
-        const creatorEVMAddress = item.creator;
+        const creatorEVMAddress = meta.properties.creator;
     
         const collection = await byId ({ params: { id: meta.properties.collection } });
         const collectionData = collection.collection.data;
-        console.log ()
-        res.json (meta);
-        return;
         let info = {
             itemId: Number (item.itemId),
-            isOnSale: false,
-            positions: item.positions,
+            isOnSale: item.isOnSale,
             price: (Number (item.price) / (10 ** 18)).toString (),
             owners: {
                 current: {
@@ -374,6 +363,21 @@ const marketplaceItemExists = async (itemId) => {
     // return Number (item.itemId) !== 0;
 };
 
+// puts an item up for sale (owner only)
+const putOnSale = async (itemId, price) => {
+
+};
+
+// removes an item from sale (owner / seller only)
+const removeFromSale = async (itemId) => {
+
+};
+
+// buy an item for asking price
+const buyNow = async (itemId) => {
+
+};
+
 const formatBids = async (bids) => {
     bids = bids.filter (bid => bid.active === true);
     const formatted = await Promise.all (bids.map (async bid => {
@@ -416,188 +420,39 @@ const fetchHighestBid = async (itemId) => {
 
 };
 
+// returns the total number of tokens in existence
+const getTokenSupply = async (tokenId) => {
 
-const getSaleData = item => {
-    return {
-        price: Number (item.price)
-    }
-}
-
-const getAuctionData = item => {
-    return {
-        deadline: Number (item.auctionData.deadline),
-        minBid: Number (item.auctionData.minBid),
-        highestBid: Number (item.auctionData.highestBid),
-        highestBidder: item.auctionData.highestBidder
-    }
-}
-
-const getRaffleData = item => {
-    return {
-        deadline: Number (item.raffleData.deadline),
-        totalValue: Number (item.raffleData.totalValue),
-        totalAddresses: Number (item.raffleData.totalAddresses),
-    }
-}
-
-const getLoanData = item => {
-    return {
-        deadline: Number (item.loanData.deadline),
-        loanAmount: Number (item.loanData.loanAmount),
-        feeAmount: Number (item.loanData.feeAmount),
-        numMinutes: Number (item.loanData.numMinutes),
-        lender: item.loanData.lender,
-    }
-}
-
-const fetchMeta = async (item, tokenContract) => {
-    const metaURL = await tokenContract.uri (item.item.tokenId.toNumber ());
-    const meta = await axios (getCloudflareURL (metaURL));
-    return meta.data;
 };
 
-const fetchPosition = async (req, res) => {
-    const { provider } = await getWallet ();
-    const { positionId } = req.params;
-    const marketContract = await marketplaceContract (provider);
-    const tokenContract = await collectibleContract (provider);
+// returns the total number of tokens in existence by itemId
+const getTokenSupplyByItemId = async (itemId) => {
 
-    try {
-        const item = await marketContract.fetchPosition (positionId);
-        let meta = {};
-        try {
-            meta = await fetchMeta (item, tokenContract);
-        } catch (err) {};
-        let names = await Promise.allSettled (Array.from (new Set ([item.item.creator, item.owner])).map (async address => {
-            return { name: await getNameByAddress (address), address };
-        }));
-        let namesObj;
-        names.filter (name => name.status === 'fulfilled').forEach (name => {
-            namesObj = { ...namesObj, [name.value.address]: name.value.name };
-        });
-        const itemObject = {
-            positionId: Number (item.positionId),
-            itemId: Number (item.item.itemId),
-            tokenId: Number (item.item.tokenId),
-            collection: await getCollectionByItemId (item.item.itemId),
-            creator: {
-                address: item.item.creator,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                name: namesObj [item.item.creator] || item.item.creator
-            },
-            owner: {
-                address: item.owner,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                name: namesObj [item.owner] || item.owner
-            },
-            amount: Number (item.amount),
-            sale: item.state === 1 ? getSaleData (item) : null,
-            auction: item.state === 2 ? getAuctionData (item) : null,
-            raffle: item.state === 3 ? getRaffleData (item) : null,
-            loan: item.state === 4 ? getLoanData (item) : null,
-            marketFee: Number (item.marketFee),
-            state: item.state,
-            meta
-        }
-        res.status (200).json (itemObject);
-    } catch (err) {
-        // console.log (err);
-        res.json ({
-            error: err
-        });
-    }
-}
-const fetchAll = async (req, res) => {
-    const { provider } = await getWallet ();
-    const { type, ownerId, collectionId } = req.params;
-    const page = Number (req.query.page) || 1;
-    const perPage = Math.min (Number (req.query.perPage), 100) || 10;
-    const marketContract = await marketplaceContract (provider);
-    const tokenContract = await collectibleContract (provider);
-    try {
-        const allRawItems = await marketContract.fetchPositionsByState (Number (type));
-        // filter by owner
-        let rawItems = ownerId ? allRawItems.filter (item => item.owner === ownerId) : allRawItems;
-        // TODO: fetch collections and filter by collection
-        // TODO: check if item is verified
-        // pagination
-        rawItems = rawItems.slice ((page - 1) * perPage, page * perPage);
-        // fetch metas
-        const metas = await Promise.allSettled (rawItems.map (item => fetchMeta (item, tokenContract)));
-        const addresses = new Set ();
-        rawItems.forEach (item => {
-            addresses.add (item.item.creator);
-            addresses.add (item.owner);
-        });
-        // fetch usernames
-        let names = await Promise.allSettled (Array.from (addresses).map (async address => {
-            return { name: await getNameByAddress (address), address };
-        }));
-        let namesObj;
-        names.filter (name => name.status === 'fulfilled').forEach (name => {
-            namesObj = { ...namesObj, [name.value.address]: name.value.name };
-        });
-        const items = [];
-        for (let i = 0; i < rawItems.length; i++) {
-            const item = rawItems [i];
-            items.push ({
-                positionId: Number (item.positionId),
-                itemId: Number (item.item.itemId),
-                tokenId: Number (item.item.tokenId),
-                collection: await getCollectionByItemId (item.item.itemId),
-                creator: {
-                    address: item.item.creator,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                    name: namesObj [item.item.creator] || item.item.creator
-                },
-                owner: {
-                    address: item.owner,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                    name: namesObj [item.owner] || item.owner
-                },
-                amount: Number (item.amount),
-                sale: item.state === 1 ? getSaleData (item) : null,
-                auction: item.state === 2 ? getAuctionData (item) : null,
-                raffle: item.state === 3 ? getRaffleData (item) : null,
-                loan: item.state === 4 ? getLoanData (item) : null,
-                marketFee: Number (item.marketFee),
-                state: item.state,
-                meta: metas [i].value,
-            });
-        }
-        res.status (200).json ({
-            items,
-            pagination: {
-                page,
-                perPage,
-            }
-        });
-    } catch (err) {
-        res.json ({
-            error: err
-        });
-    }
 };
 
 module.exports = {
     marketplaceItemExists,
     fetchMarketplaceItems,
     fetchMarketplaceItem,
+    putOnSale,
+    removeFromSale,
+    buyNow,
     fetchBids,
+    addBid,
+    removeBid,
+    acceptBid,
     fetchHighestBid,
+    getTokenSupply,
+    getTokenSupplyByItemId,
     router: () => {
         const router = Router ();
     
         router.get ('/fetchMarketItems', fetchMarketplaceItems);
         router.get ('/fetchMarketItems/collection/:collectionId', fetchCollection);
         router.get ('/fetchMarketItems/owner/:address', fetchMarketItemsFromSeller);
-        router.get ('/fetchMarketItem/:itemId/:position', fetchMarketplaceItem);
+        router.get ('/fetchMarketItem/:itemId', fetchMarketplaceItem);
         router.get ('/bids/:itemId', fetchBids);
-
-        router.get ('/all/:type', fetchAll);
-        router.get ('/by-owner/:address/:type', fetchAll);
-        router.get ('/by-collection/:collectionId/:type', fetchAll);
-        router.get ('/position/:positionId', fetchPosition);
+        
         return router;
     }
 }

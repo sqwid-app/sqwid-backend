@@ -1,10 +1,5 @@
 let ABI = [
   {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
@@ -144,25 +139,6 @@ let ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "_tokenURIs",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "account",
         "type": "address"
@@ -209,16 +185,49 @@ let ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "currentId",
-    "outputs": [
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "name": "burn",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "ids",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "amounts",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "burnBatch",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -281,6 +290,25 @@ let ABI = [
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "hasMutableURI",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "mutableMetadata",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "account",
         "type": "address"
@@ -328,6 +356,11 @@ let ABI = [
         "internalType": "uint256",
         "name": "royaltyValue",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "mutableMetadata",
+        "type": "bool"
       }
     ],
     "name": "mint",
@@ -354,6 +387,11 @@ let ABI = [
         "type": "uint256[]"
       },
       {
+        "internalType": "string[]",
+        "name": "tokenURIs",
+        "type": "string[]"
+      },
+      {
         "internalType": "address[]",
         "name": "royaltyRecipients",
         "type": "address[]"
@@ -362,10 +400,21 @@ let ABI = [
         "internalType": "uint256[]",
         "name": "royaltyValues",
         "type": "uint256[]"
+      },
+      {
+        "internalType": "bool[]",
+        "name": "mutableMetadatas",
+        "type": "bool[]"
       }
     ],
     "name": "mintBatch",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -398,7 +447,7 @@ let ABI = [
       },
       {
         "internalType": "uint256",
-        "name": "value",
+        "name": "saleValue",
         "type": "uint256"
       }
     ],
@@ -505,12 +554,17 @@ let ABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "marketplaceAddress",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "uriValue",
+        "type": "string"
       }
     ],
-    "name": "setMarketplaceAddress",
+    "name": "setTokenUri",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -551,7 +605,7 @@ let ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_id",
+        "name": "tokenId",
         "type": "uint256"
       }
     ],

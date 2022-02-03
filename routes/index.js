@@ -13,6 +13,7 @@ const getVerifyJWTRoutes = require ('./verifyjwt');
 const getEditEVMAddressRoutes = require ('./edit/evmAddress');
 const getSyncCollectiblesRoutes = require ('./sync/collectibles');
 const getMarketplaceRoutes = require ('./get/r/marketplace').router;
+const getMarketplaceOldRoutes = require ('./get/r/marketplace_old').router;
 
 module.exports = () => {
     const router = Router ();
@@ -24,7 +25,8 @@ module.exports = () => {
     router.use ('/get/collections', getCollectionsRoutes ());
     router.use ('/get/collectibles', getCollectiblesRoutes ());
     router.use ('/get/collectible', getCollectibleRoutes ());
-    router.use ('/get/r/marketplace', getMarketplaceRoutes ());
+    router.use ('/get/r/marketplace', getMarketplaceOldRoutes ());
+    router.use ('/get/marketplace', getMarketplaceRoutes ());
     router.use ('/get/user', getUserRoutes ());
     router.use ('/edit/user', getEditUserRoutes ());
     router.use ('/edit/evmaddress', getEditEVMAddressRoutes ());
