@@ -2257,6 +2257,26 @@
     blakejs "~1.1.0"
     ethers "~5.5.0"
 
+"@reef-defi/evm-provider@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@reef-defi/evm-provider/-/evm-provider-1.0.4.tgz#4c02a1d22b6f302edb8ec49ac9e525581485f2b5"
+  integrity sha512-Sl+fjcZr3AHeUPNfX2/39qGY5DSyI2cUGzHciCP29v64VYZGwbcVVgTYk6gQL7ZKiqkg5jCZ4rqxySfFg5Fr+Q==
+  dependencies:
+    "@open-web3/dev-config" "^0.1.13"
+    "@open-web3/scanner" "^1.0.1"
+    "@polkadot/api" "^6.3.1"
+    "@polkadot/keyring" "^7.5.1"
+    "@polkadot/rpc-provider" "^6.3.1"
+    "@polkadot/types" "^6.3.1"
+    "@polkadot/util" "^7.5.1"
+    "@polkadot/util-crypto" "^7.5.1"
+    "@reef-defi/api" "^1.0.0"
+    "@reef-defi/api-derive" "^1.0.0"
+    "@reef-defi/type-definitions" "^1.0.0"
+    "@reef-defi/types" "^1.0.0"
+    blakejs "~1.1.0"
+    ethers "~5.5.0"
+
 "@reef-defi/type-definitions@^1.0.0":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@reef-defi/type-definitions/-/type-definitions-1.0.1.tgz#5b5c0a304f4461c700148d40072bf974fff02bdd"

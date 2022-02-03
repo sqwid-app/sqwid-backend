@@ -4,25 +4,19 @@ const { verify } = require ('../../middleware/auth');
 const ethers = require ('ethers');
 const multer = require ('multer');
 const { NFTStorage, File } = require ('nft.storage');
+const getNetwork = require('../../lib/getNetwork');
 
-
-const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
-
-// const ethers = require ('ethers');
-
-// const { getWallet } = require ('../../lib/getWallet');
-
-// const { ABI } = require ('../../contracts/SqwidERC1155');
-
-// const { getCloudflareURL } = require ('../../lib/getIPFSURL');
-// const { default: axios } = require('axios');
+const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
+const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const cors = require ('cors');
 const { getWallet } = require('../../lib/getWallet');
 const { getCloudflareURL } = require('../../lib/getIPFSURL');
 const axios = require ('axios');
+
+const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
@@ -40,7 +34,6 @@ let upload = async (req, res, next) => {
     let col = req.body.collection || "ASwOXeRM5DfghnURP4g2";
     const collection = await firebase.collection ('collections').doc (col).get ();
     let creator = await getEVMAddress (req.user.address);
-    // console.log (creator);
 
     if (collection.exists) {
         if (collection.data ().owner === req.user.address || col === "ASwOXeRM5DfghnURP4g2") {
@@ -120,15 +113,18 @@ const verifyItem = async (req, res, next) => {
     const marketContract = await marketplaceContract (provider);
     const tokenContract = await collectibleContract (provider);
     const { id, collection } = req.body;
-    const creator = getEVMAddress (req.user.address);
+    const creator = await getEVMAddress (req.user.address);
+
+    const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';
 
     // verify user owns collection
-    const collectionDoc = await firebase.collection ('collections').doc (collection).get ();
-    if (collectionDoc.exists && (collectionDoc.data ().owner === req.user.address || collection === "ASwOXeRM5DfghnURP4g2")) {
+    const collectionDoc = await firebase.collection ('collections').doc (collectionId).get ();
+    if (collectionDoc.exists && (collectionDoc.data ().owner === req.user.address || collectionId === "ASwOXeRM5DfghnURP4g2")) {
         try {
             const item = await marketContract.fetchItem (id);
+            let ipfsURI;
             if (item.creator === creator) {
-                const ipfsURI = await tokenContract.uri (item.tokenId);
+                ipfsURI = await tokenContract.uri (item.tokenId);
                 let meta = {};
                 try {
                     const response = await axios (getCloudflareURL (ipfsURI));
@@ -139,8 +135,8 @@ const verifyItem = async (req, res, next) => {
 
                 await firebase.collection ('collectibles').doc (id.toString ()).set ({
                     id,
-                    uri: item.uri,
-                    collection,
+                    uri: ipfsURI,
+                    collectionId,
                     createdAt: new Date (),
                     creator,
                     meta,

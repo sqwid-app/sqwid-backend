@@ -5,12 +5,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node index.js",
+    "nodemon": "nodemon --no-deprecation ."
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@reef-defi/evm-provider": "^1.0.2",
+    "@reef-defi/evm-provider": "^1.0.4",
     "axios": "^0.24.0",
     "cors": "^2.8.5",
     "dotenv": "^10.0.0",
