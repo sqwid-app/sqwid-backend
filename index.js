@@ -26,7 +26,6 @@ const cors = require ('cors');
 // });
 
 app.set ('trust proxy', 1);
-app.get ('/ip', (request, response) => response.send(request.ip))
 app.use (morgan ('dev'));
 app.use (helmet ());
 app.use (cors ({origin: '*'}));
