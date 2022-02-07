@@ -254,11 +254,16 @@ const fetchMarketplaceItems = async (req, res) => {
     const { collectionId } = req.params;
     // console.time ('fetchMarketplaceItem');
     const utilContract = utilityContract (provider);
-
+    // console.time ('fetchMarketplaceItem');
     const items = await utilContract.fetchMarketItems ();
     // console.timeEnd ('fetchMarketplaceItem');
+    // console.log (items.length);
+    // console.timeEnd ('fetchMarketplaceItem');
     
+    console.time ('fetchMarketplaceItemDetails');
     const itemsWithDetails = await generateItemsDetails (items, collectionId);
+    console.timeEnd ('fetchMarketplaceItemDetails');
+    
     
     res?.json (itemsWithDetails);
     return itemsWithDetails;

@@ -133,7 +133,7 @@ const verifyItem = async (req, res, next) => {
 
                 // <here check the media for inappropiate content>
 
-                await firebase.collection ('collectibles').doc (id.toString ()).set ({
+                await firebase.collection ('collectibles').add ({
                     id,
                     uri: ipfsURI,
                     collectionId,
