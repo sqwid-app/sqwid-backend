@@ -25,7 +25,7 @@ const cors = require ('cors');
 //     res.send('cors problem fixed:)');
 // });
 
-// app.set ('trust proxy', 1);
+app.set ('trust proxy', 1);
 app.get ('/ip', (request, response) => response.send(request.ip))
 app.use (morgan ('dev'));
 app.use (helmet ());
