@@ -7,6 +7,7 @@ const { getWallet } = require ('../../../lib/getWallet');
 const { byId } = require ('../collections');
 const getNetwork = require ('../../../lib/getNetwork');
 const firebase = require ('../../../lib/firebase');
+const { FieldPath } = require ('firebase-admin').firestore;
 // const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 
@@ -77,6 +78,15 @@ const fetchPosition = async (req, res) => {
 
     try {
         const item = await marketContract.fetchPosition (positionId);
+        const snapshot = await collectiblesRef.where ('approved', '==', true).where ('id', '==', Number (item.item.itemId)).get ();
+
+        if (snapshot.empty) throw new Error (`Collectible does not exist or is not approved.`);
+
+        const collectibleData = snapshot.docs [0].data ();
+        const collectionData = await fetchCollectionData (collectibleData.collectionId);
+        
+        /*
+        const item = await marketContract.fetchPosition (positionId);
         let itemMeta = null;
         let itemCollection = null;
         try {
@@ -124,12 +134,51 @@ const fetchPosition = async (req, res) => {
             meta: itemMeta
         }
         res.status (200).json (itemObject);
+        */
     } catch (err) {
         // console.log (err);
         res.json ({
             error: err
         });
     }
+}
+
+const sliceIntoChunks = (arr, chunkSize) => {
+    const res = [];
+    for (let i = 0; i < arr.length; i += chunkSize) {
+        const chunk = arr.slice (i, i + chunkSize);
+        res.push (chunk);
+    }
+    return res;
+}
+
+const getDbCollectibles = async (items) => {
+    const collectiblesRef = firebase.collection ('collectibles');
+    const chunks = sliceIntoChunks (items, 10);
+    const promiseArray = chunks.map (async chunk => collectiblesRef.where ('id', 'in', chunk).get ());
+    const collectibles = await Promise.allSettled (promiseArray);
+    return collectibles
+        .filter (chunk => chunk.status === 'fulfilled')
+        .map (chunk => chunk.value.docs)
+        .reduce ((acc, curr) => [...acc, ...curr], [])
+        .map (doc => doc.data ());
+}
+
+const getDbApprovedIds = async () => {
+    const ids = await firebase.collection ('blacklists').doc ('collectibles').get ();
+    return ids.data ().allowed;
+}
+// TODO: fetch collections in chunks
+const getDbCollections = async (items) => {
+    const collectionsRef = firebase.collection ('collections');
+    const chunks = sliceIntoChunks (items, 10);
+    const promiseArray = chunks.map (async chunk => collectionsRef.where (FieldPath.documentId (), 'in', chunk).get ());
+    const collections = await Promise.allSettled (promiseArray);
+    return collections
+        .filter (chunk => chunk.status === 'fulfilled')
+        .map (chunk => chunk.value.docs)
+        .reduce ((acc, curr) => [...acc, ...curr], [])
+        .map (doc => doc.data ());
 }
 
 const fetchPositions = async (req, res) => {
@@ -139,57 +188,47 @@ const fetchPositions = async (req, res) => {
     const perPage = Math.min (Number (req.query.perPage), 100) || 10;
     const marketContract = await marketplaceContract (provider);
     try {
-        const collectiblesRef = firebase.collection ('collectibles');
-
-        console.time ('fetch items');
-        const snapshotPromise = collectiblesRef.where ('approved', '==', true).get ();
+        const validIdsPromise = getDbApprovedIds ()
         const allRawItemsPromise = type ? marketContract.fetchPositionsByState (Number (type)) : marketContract.fetchAddressPositions (ownerAddress);
-        const [snapshot, allRawItems] = await Promise.allSettled ([snapshotPromise, allRawItemsPromise]);
-        console.timeEnd ('fetch items');
-        if (snapshot.status === 'rejected') throw new Error (snapshot.reason);
-        if (allRawItems.status === 'rejected') throw new Error (allRawItems.reason);
+        const [allowedIds, allRawItems] = await Promise.all ([validIdsPromise, allRawItemsPromise]);
 
-        const validItems = snapshot.value.docs;
-        let rawItems = allRawItems.value;
+        const validItems = allowedIds.reduce ((acc, curr) => {
+            acc [curr.id] = curr;
+            return acc;
+        }, {});
 
-        // filter by owner
-        rawItems = ownerAddress ? rawItems.filter (item => item.owner === ownerAddress) : rawItems;
-        // filter by verified 
-        let validItemsObject = {};
-        validItems.forEach (item => {
-            let data = item.data ();
-            if (collectionId) {
-                if (data.collectionId === collectionId) {
-                    validItemsObject = { ...validItemsObject, [data.id]: data };
-                }
-            } else {
-                validItemsObject = { ...validItemsObject, [data.id]: data };
-            }
-        });
-        rawItems = rawItems.filter (item => item.item.itemId.toString () in validItemsObject);
-
+        // filter by verified, owner, and collection
+        let rawItems = allRawItems.filter (item => (
+            item.item.itemId.toString () in validItems &&
+            (ownerAddress ? (item.owner === ownerAddress) : true) &&
+            (collectionId ? (validItems [item.item.itemId].collection === collectionId) : true)
+            )
+        );
         // pagination
-        rawItems = rawItems.slice ((page - 1) * perPage, page * perPage);
+        rawItems = rawItems.reverse ().slice ((page - 1) * perPage, page * perPage);
 
+        // get unique item IDs from rawItems
+        const itemIds = Array.from (new Set (rawItems.map (item => Number (item.item.itemId))));
+        const collectionsSet = new Set (rawItems.map (item => validItems [item.item.itemId.toString ()].collection));
         const addresses = new Set (rawItems.reduce ((acc, item) => [...acc, item.owner, item.item.creator], []));
-        const collectionsSet = new Set (rawItems.map (item => validItemsObject [item.item.itemId.toString ()].collectionId));
-
-        console.time ('fetch collections and names');
-        const collectionsPromise = Promise.allSettled (Array.from (collectionsSet).map (fetchCollectionData));
+        // get collectibles from db
+        const collectiblesPromise = getDbCollectibles (itemIds);
         const namesPromise = Promise.allSettled (Array.from (addresses).map (async address => {
             return { name: await getNameByEVMAddress (address), address };
         }));
-        const [collections, names] = await Promise.allSettled ([collectionsPromise, namesPromise]);
-        console.timeEnd ('fetch collections and names');
+        const collectionsPromise = await Promise.allSettled (Array.from (collectionsSet).map (fetchCollectionData));
+        const [collectibles, names, collections] = await Promise.all ([collectiblesPromise, namesPromise, collectionsPromise]);
 
-        if (collections.status === 'rejected') throw new Error (collections.reason);
-        if (names.status === 'rejected') throw new Error (names.reason);
+        const collectiblesObject = collectibles.reduce ((acc, curr) => {
+            acc [curr.id] = curr;
+            return acc;
+        }, {});
 
-        const collectionsObject = collections.value.filter (collection => collection.status === 'fulfilled').reduce ((acc, collection) => {
+        const collectionsObject = collections.filter (collection => collection.status === 'fulfilled').reduce ((acc, collection) => {
             return { ...acc, [collection.value.id]: collection.value };
         }, {});
         let namesObj;
-        names.value.filter (name => name.status === 'fulfilled').forEach (name => {
+        names.filter (name => name.status === 'fulfilled').forEach (name => {
             namesObj = { ...namesObj, [name.value.address]: name.value.name };
         });
         const items = [];
@@ -199,7 +238,7 @@ const fetchPositions = async (req, res) => {
                 positionId: Number (item.positionId),
                 itemId: Number (item.item.itemId),
                 tokenId: Number (item.item.tokenId),
-                collection: collectionsObject [validItemsObject [item.item.itemId.toString ()].collectionId],
+                collection: collectionsObject [validItems [item.item.itemId.toString ()].collection],
                 creator: {
                     address: item.item.creator,
                     avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
@@ -217,7 +256,7 @@ const fetchPositions = async (req, res) => {
                 loan: item.state === 4 ? getLoanData (item) : null,
                 marketFee: Number (item.marketFee),
                 state: item.state,
-                meta: validItemsObject [item.item.itemId.toString ()].meta,
+                meta: collectiblesObject [item.item.itemId.toString ()].meta,
             });
         }
         res.status (200).json ({

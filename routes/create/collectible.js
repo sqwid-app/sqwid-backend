@@ -5,6 +5,7 @@ const ethers = require ('ethers');
 const multer = require ('multer');
 const { NFTStorage, File } = require ('nft.storage');
 const getNetwork = require('../../lib/getNetwork');
+const { FieldValue } = require ('firebase-admin').firestore;
 
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
@@ -133,7 +134,7 @@ const verifyItem = async (req, res, next) => {
 
                 // <here check the media for inappropiate content>
 
-                await firebase.collection ('collectibles').add ({
+                let addItem = firebase.collection ('collectibles').add ({
                     id,
                     uri: ipfsURI,
                     collectionId,
@@ -142,6 +143,15 @@ const verifyItem = async (req, res, next) => {
                     meta,
                     approved: true
                 });
+
+                let allowItem = firebase.collection ('blacklists').doc ('collectibles').update ({
+                    allowed: FieldValue.arrayUnion ({
+                        id,
+                        collection: collectionId
+                    })
+                });
+
+                await Promise.all ([addItem, allowItem]);
 
                 res.status (200).json ({
                     message: 'Item verified.'
