@@ -50,20 +50,6 @@ const getLoanData = item => {
     }
 }
 
-const fetchMetaAndCollection = async (itemId) => {
-    const collectible = await firebase.collection ('collectibles').doc (itemId.toString ()).get ();
-
-    if (!collectible.exists) throw new Error (`Collectible does not exist.`);
-    const collectibleData = collectible.data ();
-    if (!collectibleData.approved) throw new Error (`Collectible is not approved.`);
-    const collectionData = await byId ({ params: { id: collectibleData.collectionId } });
-
-    return {
-        meta: collectibleData.meta,
-        collection: collectionData.collection.data
-    }
-}
-
 const fetchCollectionData = async (collectionId) => {
     const collection = await firebase.collection ('collections').doc (collectionId).get ();
     if (!collection.exists) throw new Error (`Collection does not exist.`);
@@ -122,7 +108,7 @@ const fetchPosition = async (req, res) => {
     } catch (err) {
         console.log (err);
         res.json ({
-            error: err
+            error: err.toString ()
         });
     }
 }
@@ -152,7 +138,7 @@ const getDbApprovedIds = async () => {
     const ids = await firebase.collection ('blacklists').doc ('collectibles').get ();
     return ids.data ().allowed;
 }
-// TODO: fetch collections in chunks
+
 const getDbCollections = async (items) => {
     const collectionsRef = firebase.collection ('collections');
     const chunks = sliceIntoChunks (items, 10);
@@ -175,6 +161,110 @@ const getNamesByEVMAddresses = async (addresses) => {
         .map (chunk => chunk.value.docs)
         .reduce ((acc, curr) => [...acc, ...curr], [])
         .map (doc => { return { name: doc.data ().displayName, address: doc.data ().evmAddress }});
+}
+
+const buildObjectsFromItems = async (items, validItems) => {
+    const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
+    const collectionsSet = new Set (items.map (item => validItems [item.item.itemId.toString ()].collection));
+    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.owner, item.item.creator], []));
+
+    const collectiblesPromise = getDbCollectibles (itemIds);
+    const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
+    const collectionsPromise = getDbCollections (Array.from (collectionsSet));
+    const [collectibles, names, collections] = await Promise.all ([collectiblesPromise, namesPromise, collectionsPromise]);
+
+    const collectiblesObject = collectibles.reduce ((acc, curr) => {
+        acc [curr.id] = curr;
+        return acc;
+    }, {});
+
+    const collectionsObject = collections.reduce ((acc, collection) => {
+        return { ...acc, [collection.id]: collection.data };
+    }, {});
+    let namesObj;
+    names.forEach (name => {
+        namesObj = { ...namesObj, [name.address]: name.name };
+    });
+    
+    return {
+        collectibles: collectiblesObject,
+        collections: collectionsObject,
+        names: namesObj
+    }
+}
+
+const fetchSummary = async (req, res) => {
+    const { provider } = await getWallet ();
+    const marketContract = await marketplaceContract (provider);
+    try {
+        const validIdsPromise = getDbApprovedIds ()
+        const rawItemsPromises = Promise.all (new Array (4).fill (null).map ((_, i) => marketContract.fetchPositionsByState (i + 1)));
+        const [allowedIds, allRawItems] = await Promise.all ([validIdsPromise, rawItemsPromises]);
+
+        const validItems = allowedIds.reduce ((acc, curr) => {
+            acc [curr.id] = curr;
+            return acc;
+        }, {});
+
+        // flatten array
+        const allRawItemsFlat = allRawItems.reduce ((acc, curr) => [...acc, ...curr], []);
+        // filter out items that are not approved
+        let rawItems = allRawItemsFlat.filter (item => (item.item.itemId.toString () in validItems));
+        rawItems = rawItems.reverse ();
+        let newItems = [];
+        let found = new Array (4).fill (0);
+        for (let i = 0; i < rawItems.length; i++) {
+            if (found [rawItems [i].state] > 4) continue;
+            found [rawItems [i].state]++;
+            newItems.push (rawItems [i]);
+        }
+
+        const { collectibles, collections, names } = await buildObjectsFromItems (newItems, validItems);
+
+        let newObject = {
+            sale: [],
+            auction: [],
+            raffle: [],
+            loan: []
+        }
+        let keys = Object.keys (newObject);
+        newItems.forEach (item => {
+            const itemObject = {
+                positionId: Number (item.positionId),
+                itemId: Number (item.item.itemId),
+                tokenId: Number (item.item.tokenId),
+                collection: collections [validItems [item.item.itemId.toString ()].collection],
+                creator: {
+                    address: item.item.creator,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
+                    name: names [item.item.creator] || item.item.creator
+                },
+                owner: {
+                    address: item.owner,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
+                    name: names [item.owner] || item.owner
+                },
+                amount: Number (item.amount),
+                sale: item.state === 1 ? getSaleData (item) : null,
+                auction: item.state === 2 ? getAuctionData (item) : null,
+                raffle: item.state === 3 ? getRaffleData (item) : null,
+                loan: item.state === 4 ? getLoanData (item) : null,
+                marketFee: Number (item.marketFee),
+                state: item.state,
+                meta: collectibles [item.item.itemId.toString ()].meta,
+            }
+            newObject [keys [item.state - 1]].push (itemObject);
+        });
+
+        res.status (200).json ({
+            ...newObject
+        });
+    } catch (err) {
+        console.log (err);
+        res.json ({
+            error: err.toString ()
+        });
+    }
 }
 
 const fetchPositions = async (req, res) => {
@@ -203,31 +293,7 @@ const fetchPositions = async (req, res) => {
         // pagination
         rawItems = rawItems.reverse ().slice ((page - 1) * perPage, page * perPage);
 
-        // get unique item IDs from rawItems
-        const itemIds = Array.from (new Set (rawItems.map (item => Number (item.item.itemId))));
-        const collectionsSet = new Set (rawItems.map (item => validItems [item.item.itemId.toString ()].collection));
-        const addresses = new Set (rawItems.reduce ((acc, item) => [...acc, item.owner, item.item.creator], []));
-        // get collectibles, names, and collections from db
-        const collectiblesPromise = getDbCollectibles (itemIds);
-        // const namesPromise = Promise.allSettled (Array.from (addresses).map (async address => {
-        //     return { name: await getNameByEVMAddress (address), address };
-        // }));
-        const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
-        const collectionsPromise = getDbCollections (Array.from (collectionsSet));
-        const [collectibles, names, collections] = await Promise.all ([collectiblesPromise, namesPromise, collectionsPromise]);
-
-        const collectiblesObject = collectibles.reduce ((acc, curr) => {
-            acc [curr.id] = curr;
-            return acc;
-        }, {});
-
-        const collectionsObject = collections.reduce ((acc, collection) => {
-            return { ...acc, [collection.id]: collection.data };
-        }, {});
-        let namesObj;
-        names.forEach (name => {
-            namesObj = { ...namesObj, [name.address]: name.name };
-        });
+        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems, validItems);
         const items = [];
         for (let i = 0; i < rawItems.length; i++) {
             const item = rawItems [i];
@@ -235,16 +301,16 @@ const fetchPositions = async (req, res) => {
                 positionId: Number (item.positionId),
                 itemId: Number (item.item.itemId),
                 tokenId: Number (item.item.tokenId),
-                collection: collectionsObject [validItems [item.item.itemId.toString ()].collection],
+                collection: collections [validItems [item.item.itemId.toString ()].collection],
                 creator: {
                     address: item.item.creator,
                     avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                    name: namesObj [item.item.creator] || item.item.creator
+                    name: names [item.item.creator] || item.item.creator
                 },
                 owner: {
                     address: item.owner,
                     avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                    name: namesObj [item.owner] || item.owner
+                    name: names [item.owner] || item.owner
                 },
                 amount: Number (item.amount),
                 sale: item.state === 1 ? getSaleData (item) : null,
@@ -253,7 +319,7 @@ const fetchPositions = async (req, res) => {
                 loan: item.state === 4 ? getLoanData (item) : null,
                 marketFee: Number (item.marketFee),
                 state: item.state,
-                meta: collectiblesObject [item.item.itemId.toString ()].meta,
+                meta: collectibles [item.item.itemId.toString ()].meta,
             });
         }
         res.status (200).json ({
@@ -266,7 +332,7 @@ const fetchPositions = async (req, res) => {
     } catch (err) {
         console.log (err);
         res.json ({
-            error: err
+            error: err.toString ()
         });
     }
 };
@@ -274,6 +340,7 @@ const fetchPositions = async (req, res) => {
 module.exports = {
     router: () => {
         const router = Router ();
+        router.get ('/summary', fetchSummary);
         router.get ('/all/:type', fetchPositions);
         router.get ('/by-owner/:ownerAddress', fetchPositions);
         router.get ('/by-owner/:ownerAddress/:type', fetchPositions);
