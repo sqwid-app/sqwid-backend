@@ -75,7 +75,7 @@ const fetchPosition = async (req, res) => {
     const { provider } = await getWallet ();
     const { positionId } = req.params;
     const marketContract = await marketplaceContract (provider);
-
+    const collectiblesRef = firebase.collection ('collectibles');
     try {
         const item = await marketContract.fetchPosition (positionId);
         const snapshot = await collectiblesRef.where ('approved', '==', true).where ('id', '==', Number (item.item.itemId)).get ();
@@ -83,37 +83,22 @@ const fetchPosition = async (req, res) => {
         if (snapshot.empty) throw new Error (`Collectible does not exist or is not approved.`);
 
         const collectibleData = snapshot.docs [0].data ();
-        const collectionData = await fetchCollectionData (collectibleData.collectionId);
+
+        const collectionPromise = fetchCollectionData (collectibleData.collectionId);
+        const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner])));
         
-        /*
-        const item = await marketContract.fetchPosition (positionId);
-        let itemMeta = null;
-        let itemCollection = null;
-        try {
-            let { meta, collection } = await fetchMetaAndCollection (item.item.itemId.toString ());
-            itemMeta = meta;
-            itemCollection = collection;
-        } catch (err) {
-            console.log (err);
-        };
-        if (!itemMeta) {
-            return res.status (404).json ({
-                error: 'Item not found'
-            });
-        }
-        let names = await Promise.allSettled (Array.from (new Set ([item.item.creator, item.owner])).map (async address => {
-            return { name: await getNameByEVMAddress (address), address };
-        }));
-        let namesObj;
-        
-        names.filter (name => name.status === 'fulfilled').forEach (name => {
-            namesObj = { ...namesObj, [name.value.address]: name.value.name };
+        const [collection, names] = await Promise.all ([collectionPromise, namesPromise]);
+
+        let namesObj = {};
+        names.forEach (name => {
+            namesObj = { ...namesObj, [name.address]: name.name };
         });
+
         const itemObject = {
             positionId: Number (item.positionId),
             itemId: Number (item.item.itemId),
             tokenId: Number (item.item.tokenId),
-            collection: itemCollection,
+            collection: collection,
             creator: {
                 address: item.item.creator,
                 avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
@@ -131,12 +116,11 @@ const fetchPosition = async (req, res) => {
             loan: item.state === 4 ? getLoanData (item) : null,
             marketFee: Number (item.marketFee),
             state: item.state,
-            meta: itemMeta
+            meta: collectibleData.meta
         }
         res.status (200).json (itemObject);
-        */
     } catch (err) {
-        // console.log (err);
+        console.log (err);
         res.json ({
             error: err
         });
@@ -155,7 +139,7 @@ const sliceIntoChunks = (arr, chunkSize) => {
 const getDbCollectibles = async (items) => {
     const collectiblesRef = firebase.collection ('collectibles');
     const chunks = sliceIntoChunks (items, 10);
-    const promiseArray = chunks.map (async chunk => collectiblesRef.where ('id', 'in', chunk).get ());
+    const promiseArray = chunks.map (chunk => collectiblesRef.where ('id', 'in', chunk).get ());
     const collectibles = await Promise.allSettled (promiseArray);
     return collectibles
         .filter (chunk => chunk.status === 'fulfilled')
@@ -172,13 +156,25 @@ const getDbApprovedIds = async () => {
 const getDbCollections = async (items) => {
     const collectionsRef = firebase.collection ('collections');
     const chunks = sliceIntoChunks (items, 10);
-    const promiseArray = chunks.map (async chunk => collectionsRef.where (FieldPath.documentId (), 'in', chunk).get ());
+    const promiseArray = chunks.map (chunk => collectionsRef.where (FieldPath.documentId (), 'in', chunk).get ());
     const collections = await Promise.allSettled (promiseArray);
     return collections
         .filter (chunk => chunk.status === 'fulfilled')
         .map (chunk => chunk.value.docs)
         .reduce ((acc, curr) => [...acc, ...curr], [])
-        .map (doc => doc.data ());
+        .map (doc => { return { id: doc.id, data: doc.data () }});
+}
+
+const getNamesByEVMAddresses = async (addresses) => {
+    const usersRef = firebase.collection ('users');
+    const chunks = sliceIntoChunks (addresses, 10);
+    const promiseArray = chunks.map (chunk => usersRef.where ('evmAddress', 'in', chunk).get ());
+    const users = await Promise.allSettled (promiseArray);
+    return users
+        .filter (chunk => chunk.status === 'fulfilled')
+        .map (chunk => chunk.value.docs)
+        .reduce ((acc, curr) => [...acc, ...curr], [])
+        .map (doc => { return { name: doc.data ().displayName, address: doc.data ().evmAddress }});
 }
 
 const fetchPositions = async (req, res) => {
@@ -211,12 +207,13 @@ const fetchPositions = async (req, res) => {
         const itemIds = Array.from (new Set (rawItems.map (item => Number (item.item.itemId))));
         const collectionsSet = new Set (rawItems.map (item => validItems [item.item.itemId.toString ()].collection));
         const addresses = new Set (rawItems.reduce ((acc, item) => [...acc, item.owner, item.item.creator], []));
-        // get collectibles from db
+        // get collectibles, names, and collections from db
         const collectiblesPromise = getDbCollectibles (itemIds);
-        const namesPromise = Promise.allSettled (Array.from (addresses).map (async address => {
-            return { name: await getNameByEVMAddress (address), address };
-        }));
-        const collectionsPromise = await Promise.allSettled (Array.from (collectionsSet).map (fetchCollectionData));
+        // const namesPromise = Promise.allSettled (Array.from (addresses).map (async address => {
+        //     return { name: await getNameByEVMAddress (address), address };
+        // }));
+        const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
+        const collectionsPromise = getDbCollections (Array.from (collectionsSet));
         const [collectibles, names, collections] = await Promise.all ([collectiblesPromise, namesPromise, collectionsPromise]);
 
         const collectiblesObject = collectibles.reduce ((acc, curr) => {
@@ -224,12 +221,12 @@ const fetchPositions = async (req, res) => {
             return acc;
         }, {});
 
-        const collectionsObject = collections.filter (collection => collection.status === 'fulfilled').reduce ((acc, collection) => {
-            return { ...acc, [collection.value.id]: collection.value };
+        const collectionsObject = collections.reduce ((acc, collection) => {
+            return { ...acc, [collection.id]: collection.data };
         }, {});
         let namesObj;
-        names.filter (name => name.status === 'fulfilled').forEach (name => {
-            namesObj = { ...namesObj, [name.value.address]: name.value.name };
+        names.forEach (name => {
+            namesObj = { ...namesObj, [name.address]: name.name };
         });
         const items = [];
         for (let i = 0; i < rawItems.length; i++) {
