@@ -23,12 +23,15 @@ const getSaleData = item => {
     }
 }
 
-const getAuctionData = item => {
+const getAuctionData = (item, names) => {
     return {
         deadline: Number (item.auctionData.deadline),
         minBid: Number (item.auctionData.minBid),
         highestBid: Number (item.auctionData.highestBid),
-        highestBidder: item.auctionData.highestBidder
+        highestBidder: {
+            address: item.auctionData.highestBidder,
+            name: names [item.auctionData.highestBidder] || item.auctionData.highestBidder
+        },
     }
 }
 
@@ -40,13 +43,16 @@ const getRaffleData = item => {
     }
 }
 
-const getLoanData = item => {
+const getLoanData = (item, names) => {
     return {
         deadline: Number (item.loanData.deadline),
         loanAmount: Number (item.loanData.loanAmount),
         feeAmount: Number (item.loanData.feeAmount),
         numMinutes: Number (item.loanData.numMinutes),
-        lender: item.loanData.lender,
+        lender: {
+            address: item.loanData.lender,
+            name: names [item.loanData.lender] || item.loanData.lender
+        }
     }
 }
 
@@ -71,7 +77,7 @@ const fetchPosition = async (req, res) => {
         const collectibleData = snapshot.docs [0].data ();
 
         const collectionPromise = fetchCollectionData (collectibleData.collectionId);
-        const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner])));
+        const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner, item.auctionData.highestBidder, item.loanData.lender])));
         
         const [collection, names] = await Promise.all ([collectionPromise, namesPromise]);
 
@@ -97,9 +103,9 @@ const fetchPosition = async (req, res) => {
             },
             amount: Number (item.amount),
             sale: item.state === 1 ? getSaleData (item) : null,
-            auction: item.state === 2 ? getAuctionData (item) : null,
+            auction: item.state === 2 ? getAuctionData (item, namesObj) : null,
             raffle: item.state === 3 ? getRaffleData (item) : null,
-            loan: item.state === 4 ? getLoanData (item) : null,
+            loan: item.state === 4 ? getLoanData (item, namesObj) : null,
             marketFee: Number (item.marketFee),
             state: item.state,
             meta: collectibleData.meta
@@ -166,7 +172,7 @@ const getNamesByEVMAddresses = async (addresses) => {
 const buildObjectsFromItems = async (items, validItems) => {
     const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
     const collectionsSet = new Set (items.map (item => validItems [item.item.itemId.toString ()].collection));
-    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.owner, item.item.creator], []));
+    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.owner, item.item.creator, item.loanData.lender, item.auctionData.highestBidder], []));
 
     const collectiblesPromise = getDbCollectibles (itemIds);
     const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
@@ -246,9 +252,9 @@ const fetchSummary = async (req, res) => {
                 },
                 amount: Number (item.amount),
                 sale: item.state === 1 ? getSaleData (item) : null,
-                auction: item.state === 2 ? getAuctionData (item) : null,
+                auction: item.state === 2 ? getAuctionData (item, names) : null,
                 raffle: item.state === 3 ? getRaffleData (item) : null,
-                loan: item.state === 4 ? getLoanData (item) : null,
+                loan: item.state === 4 ? getLoanData (item, names) : null,
                 marketFee: Number (item.marketFee),
                 state: item.state,
                 meta: collectibles [item.item.itemId.toString ()].meta,
@@ -314,9 +320,9 @@ const fetchPositions = async (req, res) => {
                 },
                 amount: Number (item.amount),
                 sale: item.state === 1 ? getSaleData (item) : null,
-                auction: item.state === 2 ? getAuctionData (item) : null,
+                auction: item.state === 2 ? getAuctionData (item, names) : null,
                 raffle: item.state === 3 ? getRaffleData (item) : null,
-                loan: item.state === 4 ? getLoanData (item) : null,
+                loan: item.state === 4 ? getLoanData (item, names) : null,
                 marketFee: Number (item.marketFee),
                 state: item.state,
                 meta: collectibles [item.item.itemId.toString ()].meta,
