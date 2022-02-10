@@ -218,10 +218,13 @@ const fetchSummary = async (req, res) => {
         let rawItems = allRawItemsFlat.filter (item => (item.item.itemId.toString () in validItems));
         rawItems = rawItems.reverse ();
         let newItems = [];
+        let foundTotal = 0;
         let found = new Array (4).fill (0);
         for (let i = 0; i < rawItems.length; i++) {
-            if (found [rawItems [i].state] > 4) continue;
-            found [rawItems [i].state]++;
+            if (foundTotal >= 4 * 4) break;
+            if (found [rawItems [i].state - 1] >= 4) continue;
+            found [rawItems [i].state - 1]++;
+            foundTotal++;
             newItems.push (rawItems [i]);
         }
 
