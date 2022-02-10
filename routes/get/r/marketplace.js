@@ -38,7 +38,7 @@ const getAuctionData = (item, names) => {
 const getRaffleData = item => {
     return {
         deadline: Number (item.raffleData.deadline),
-        totalValue: Number (item.raffleData.totalValue),
+        totalValue: Number (item.raffleData.totalValue) * (10 ** 18),
         totalAddresses: Number (item.raffleData.totalAddresses),
     }
 }
