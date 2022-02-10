@@ -299,6 +299,8 @@ const fetchPositions = async (req, res) => {
             (collectionId ? (validItems [item.item.itemId].collection === collectionId) : true)
             )
         );
+
+        let totalItems = rawItems.length;
         // pagination
         rawItems = rawItems.reverse ().slice ((page - 1) * perPage, page * perPage);
 
@@ -336,6 +338,7 @@ const fetchPositions = async (req, res) => {
             pagination: {
                 page,
                 perPage,
+                totalItems
             }
         });
     } catch (err) {
