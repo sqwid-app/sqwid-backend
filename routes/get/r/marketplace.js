@@ -8,6 +8,7 @@ const { byId } = require ('../collections');
 const getNetwork = require ('../../../lib/getNetwork');
 const firebase = require ('../../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
+const redisClient = require ('../../../lib/redis');
 // const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 
@@ -185,7 +186,7 @@ const buildObjectsFromItems = async (items, validItems) => {
     }, {});
 
     const collectionsObject = collections.reduce ((acc, collection) => {
-        return { ...acc, [collection.id]: collection.data };
+        return { ...acc, [collection.id]: { ...collection.data, id: collection.id } };
     }, {});
     let namesObj;
     names.forEach (name => {

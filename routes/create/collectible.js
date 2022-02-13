@@ -121,6 +121,9 @@ const verifyItem = async (req, res, next) => {
     // verify user owns collection
     const collectionDoc = await firebase.collection ('collections').doc (collectionId).get ();
     if (collectionDoc.exists && (collectionDoc.data ().owner === req.user.address || collectionId === "ASwOXeRM5DfghnURP4g2")) {
+        if (collectionDoc.data ().approved) return res.status (200).json ({
+            message: 'Item already verified.'
+        });
         try {
             const item = await marketContract.fetchItem (id);
             let ipfsURI;
