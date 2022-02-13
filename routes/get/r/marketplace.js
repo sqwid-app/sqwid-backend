@@ -2,6 +2,7 @@ const ethers = require ('ethers');
 const { Router } = require ('express');
 // const collectibleContractABI = require ('../../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../../contracts/SqwidMarketplace').ABI;
+const utilityContractABI = require ('../../../contracts/SqwidUtility').ABI;
 const axios = require ('axios');
 const { getWallet } = require ('../../../lib/getWallet');
 const { byId } = require ('../collections');
@@ -13,6 +14,7 @@ const { getUser } = require('../user');
 const { getCloudflareURL } = require('../../../lib/getIPFSURL');
 // const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 
 const getNameByEVMAddress = async (address) => {
     const res = await firebase.collection ('users').where ('evmAddress', '==', address).get ();
@@ -107,7 +109,7 @@ const fetchCollection = async (req, res) => {
 const fetchPosition = async (req, res) => {
     const { provider } = await getWallet ();
     const { positionId } = req.params;
-    const marketContract = await marketplaceContract (provider);
+    const marketContract = await utilityContract (provider);
     const collectiblesRef = firebase.collection ('collectibles');
     try {
         const item = await marketContract.fetchPosition (positionId);
@@ -243,7 +245,7 @@ const buildObjectsFromItems = async (items, validItems) => {
 
 const fetchSummary = async (req, res) => {
     const { provider } = await getWallet ();
-    const marketContract = await marketplaceContract (provider);
+    const marketContract = await utilityContract (provider);
     try {
         const validIdsPromise = getDbApprovedIds ()
         const rawItemsPromises = Promise.all (new Array (4).fill (null).map ((_, i) => marketContract.fetchPositionsByState (i + 1)));
@@ -326,7 +328,7 @@ const fetchPositions = async (req, res) => {
     const { type, ownerAddress, collectionId } = req.params;
     const page = Number (req.query.page) || 1;
     const perPage = Math.min (Number (req.query.perPage), 100) || 10;
-    const marketContract = await marketplaceContract (provider);
+    const marketContract = await utilityContract (provider);
     try {
         const validIdsPromise = getDbApprovedIds ()
         const allRawItemsPromise = type ? marketContract.fetchPositionsByState (Number (type)) : marketContract.fetchAddressPositions (ownerAddress);

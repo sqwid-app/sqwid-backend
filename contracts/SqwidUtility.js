@@ -1,5 +1,16 @@
 let ABI = [
   {
+    "inputs": [
+      {
+        "internalType": "contract ISqwidMarketplace",
+        "name": "marketplace_",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -21,12 +32,12 @@ let ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "itemId",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "targetAddress",
+        "type": "address"
       }
     ],
-    "name": "fetchMarketItem",
+    "name": "fetchAddressItemsCreated",
     "outputs": [
       {
         "components": [
@@ -36,39 +47,9 @@ let ABI = [
             "type": "uint256"
           },
           {
-            "internalType": "bool",
-            "name": "isOnSale",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
             "internalType": "address",
-            "name": "currentOwner",
+            "name": "nftContract",
             "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "currentOwnerBalance",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "totalSupply",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "highestBid",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "royalty",
-            "type": "uint256"
           },
           {
             "internalType": "uint256",
@@ -76,12 +57,515 @@ let ABI = [
             "type": "uint256"
           },
           {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
+            "internalType": "address",
+            "name": "creator",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "seller",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "buyer",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.ItemSale[]",
+            "name": "sales",
+            "type": "tuple[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "positionId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "itemId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address payable",
+                "name": "owner",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "marketFee",
+                "type": "uint256"
+              },
+              {
+                "internalType": "enum ISqwidMarketplace.PositionState",
+                "name": "state",
+                "type": "uint8"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.Position[]",
+            "name": "positions",
+            "type": "tuple[]"
           }
         ],
-        "internalType": "struct SqwidMarketUtility.MarketItemReturn",
+        "internalType": "struct SqwidMarketplaceUtil.ItemResponse[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "targetAddress",
+        "type": "address"
+      }
+    ],
+    "name": "fetchAddressPositions",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "positionId",
+            "type": "uint256"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "itemId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "nftContract",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "creator",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "positionCount",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "address",
+                    "name": "seller",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "buyer",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "price",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct ISqwidMarketplace.ItemSale[]",
+                "name": "sales",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.Item",
+            "name": "item",
+            "type": "tuple"
+          },
+          {
+            "internalType": "address payable",
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "price",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "marketFee",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum ISqwidMarketplace.PositionState",
+            "name": "state",
+            "type": "uint8"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "minBid",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "highestBidder",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "highestBid",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalAddresses",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.AuctionDataResponse",
+            "name": "auctionData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalAddresses",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.RaffleDataResponse",
+            "name": "raffleData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "loanAmount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "feeAmount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "numMinutes",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "lender",
+                "type": "address"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.LoanData",
+            "name": "loanData",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct SqwidMarketplaceUtil.PositionResponse[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "fetchAllItems",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "itemId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "nftContract",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "tokenId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "creator",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "seller",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "buyer",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.ItemSale[]",
+            "name": "sales",
+            "type": "tuple[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "positionId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "itemId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address payable",
+                "name": "owner",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "marketFee",
+                "type": "uint256"
+              },
+              {
+                "internalType": "enum ISqwidMarketplace.PositionState",
+                "name": "state",
+                "type": "uint8"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.Position[]",
+            "name": "positions",
+            "type": "tuple[]"
+          }
+        ],
+        "internalType": "struct SqwidMarketplaceUtil.ItemResponse[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "positionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "fetchAuctionBids",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemId",
+        "type": "uint256"
+      }
+    ],
+    "name": "fetchItem",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "itemId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "nftContract",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "tokenId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "creator",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "seller",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "buyer",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.ItemSale[]",
+            "name": "sales",
+            "type": "tuple[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "positionId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "itemId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address payable",
+                "name": "owner",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "marketFee",
+                "type": "uint256"
+              },
+              {
+                "internalType": "enum ISqwidMarketplace.PositionState",
+                "name": "state",
+                "type": "uint8"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.Position[]",
+            "name": "positions",
+            "type": "tuple[]"
+          }
+        ],
+        "internalType": "struct SqwidMarketplaceUtil.ItemResponse",
         "name": "",
         "type": "tuple"
       }
@@ -90,20 +574,90 @@ let ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "fetchMarketItems",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "positionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "fetchPosition",
     "outputs": [
       {
         "components": [
           {
             "internalType": "uint256",
-            "name": "itemId",
+            "name": "positionId",
             "type": "uint256"
           },
           {
-            "internalType": "bool",
-            "name": "isOnSale",
-            "type": "bool"
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "itemId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "nftContract",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "creator",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "positionCount",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "address",
+                    "name": "seller",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "buyer",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "price",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct ISqwidMarketplace.ItemSale[]",
+                "name": "sales",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.Item",
+            "name": "item",
+            "type": "tuple"
+          },
+          {
+            "internalType": "address payable",
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
           },
           {
             "internalType": "uint256",
@@ -111,42 +665,299 @@ let ABI = [
             "type": "uint256"
           },
           {
-            "internalType": "address",
-            "name": "currentOwner",
+            "internalType": "uint256",
+            "name": "marketFee",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum ISqwidMarketplace.PositionState",
+            "name": "state",
+            "type": "uint8"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "minBid",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "highestBidder",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "highestBid",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalAddresses",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.AuctionDataResponse",
+            "name": "auctionData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalAddresses",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.RaffleDataResponse",
+            "name": "raffleData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "loanAmount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "feeAmount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "numMinutes",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "lender",
+                "type": "address"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.LoanData",
+            "name": "loanData",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct SqwidMarketplaceUtil.PositionResponse",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum ISqwidMarketplace.PositionState",
+        "name": "state",
+        "type": "uint8"
+      }
+    ],
+    "name": "fetchPositionsByState",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "positionId",
+            "type": "uint256"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "itemId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "nftContract",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "creator",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "positionCount",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "address",
+                    "name": "seller",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "buyer",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "price",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct ISqwidMarketplace.ItemSale[]",
+                "name": "sales",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.Item",
+            "name": "item",
+            "type": "tuple"
+          },
+          {
+            "internalType": "address payable",
+            "name": "owner",
             "type": "address"
           },
           {
             "internalType": "uint256",
-            "name": "currentOwnerBalance",
+            "name": "amount",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "totalSupply",
+            "name": "price",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "highestBid",
+            "name": "marketFee",
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
-            "name": "royalty",
-            "type": "uint256"
+            "internalType": "enum ISqwidMarketplace.PositionState",
+            "name": "state",
+            "type": "uint8"
           },
           {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "minBid",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "highestBidder",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "highestBid",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalAddresses",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.AuctionDataResponse",
+            "name": "auctionData",
+            "type": "tuple"
           },
           {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalAddresses",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.RaffleDataResponse",
+            "name": "raffleData",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "loanAmount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "feeAmount",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "numMinutes",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "lender",
+                "type": "address"
+              }
+            ],
+            "internalType": "struct ISqwidMarketplace.LoanData",
+            "name": "loanData",
+            "type": "tuple"
           }
         ],
-        "internalType": "struct SqwidMarketUtility.MarketItemReturn[]",
+        "internalType": "struct SqwidMarketplaceUtil.PositionResponse[]",
         "name": "",
         "type": "tuple[]"
       }
@@ -157,105 +968,22 @@ let ABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "positionId",
+        "type": "uint256"
       }
     ],
-    "name": "fetchMarketItemsByOwner",
+    "name": "fetchRaffleEntries",
     "outputs": [
       {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "itemId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bool",
-            "name": "isOnSale",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "currentOwner",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "currentOwnerBalance",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "totalSupply",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "highestBid",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "royalty",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct SqwidMarketUtility.MarketItemReturn[]",
+        "internalType": "address[]",
         "name": "",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
+        "type": "address[]"
+      },
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
-    ],
-    "name": "fetchWrappedTokensByOwner",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "itemId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct SqwidMarketUtility.WrappedItem[]",
+        "internalType": "uint256[]",
         "name": "",
-        "type": "tuple[]"
+        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -263,23 +991,10 @@ let ABI = [
   },
   {
     "inputs": [],
-    "name": "getERC1155Address",
+    "name": "marketplace",
     "outputs": [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getMarketplaceAddress",
-    "outputs": [
-      {
-        "internalType": "address",
+        "internalType": "contract ISqwidMarketplace",
         "name": "",
         "type": "address"
       }
@@ -310,38 +1025,12 @@ let ABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "erc1155Address",
+        "internalType": "contract ISqwidMarketplace",
+        "name": "marketplace_",
         "type": "address"
       }
     ],
-    "name": "setERC1155",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "marketplaceAddress",
-        "type": "address"
-      }
-    ],
-    "name": "setMarketplace",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "wrapperAddress",
-        "type": "address"
-      }
-    ],
-    "name": "setWrapper",
+    "name": "setMarketContractAddress",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

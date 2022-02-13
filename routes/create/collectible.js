@@ -9,6 +9,7 @@ const { FieldValue } = require ('firebase-admin').firestore;
 
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
+const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const cors = require ('cors');
@@ -18,6 +19,7 @@ const axios = require ('axios');
 
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
@@ -111,15 +113,17 @@ let sync = async (req, res, next) => {
 
 const verifyItem = async (req, res, next) => {
     const { provider } = await getWallet ();
-    const marketContract = await marketplaceContract (provider);
+    const marketContract = await utilityContract (provider);
     const tokenContract = await collectibleContract (provider);
     const { id, collection } = req.body;
-    const creator = await getEVMAddress (req.user.address);
-
     const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';
+    
+    const creatorProimse = getEVMAddress (req.user.address);
+    const collectionDocPromise = firebase.collection ('collections').doc (collectionId).get ();
 
+    const [creator, collectionDoc] = await Promise.all ([creatorProimse, collectionDocPromise]);
+    
     // verify user owns collection
-    const collectionDoc = await firebase.collection ('collections').doc (collectionId).get ();
     if (collectionDoc.exists && (collectionDoc.data ().owner === req.user.address || collectionId === "ASwOXeRM5DfghnURP4g2")) {
         if (collectionDoc.data ().approved) return res.status (200).json ({
             message: 'Item already verified.'
@@ -177,8 +181,8 @@ module.exports = () => {
     const router = Router ();
     router.use (cors ());
 
-    router.post ('/', [ verify, mediaUpload.fields ([{ name: 'fileData', maxCount: 1 }, { name: 'coverData', maxCount: 1 }]), cors ({ origin: '*' }) ], upload);
-    router.get ('/sync', sync);
+    // router.post ('/', [ verify, mediaUpload.fields ([{ name: 'fileData', maxCount: 1 }, { name: 'coverData', maxCount: 1 }]), cors ({ origin: '*' }) ], upload);
+    // router.get ('/sync', sync);
     router.post ('/verify', verify, verifyItem);
 
     return router;
