@@ -88,6 +88,7 @@ const fetchPosition = async (req, res) => {
         });
 
         const itemObject = {
+            approved: collectibleData.approved,
             positionId: Number (item.positionId),
             itemId: Number (item.item.itemId),
             tokenId: Number (item.item.tokenId),
