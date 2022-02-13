@@ -257,7 +257,10 @@ const fetchSummary = async (req, res) => {
         // flatten array
         const allRawItemsFlat = allRawItems.reduce ((acc, curr) => [...acc, ...curr], []);
         // filter out items that are not approved
-        let rawItems = allRawItemsFlat.filter (item => (item.item.itemId.toString () in validItems));
+        let rawItems = allRawItemsFlat.filter (item => (
+            Number (item.amount) > 0 &&
+            item.item.itemId.toString () in validItems
+        ));
         rawItems = rawItems.reverse ();
         let newItems = [];
         let foundTotal = 0;
@@ -336,6 +339,7 @@ const fetchPositions = async (req, res) => {
 
         // filter by verified, owner, and collection
         let rawItems = allRawItems.filter (item => (
+            Number (item.amount) > 0 &&
             item.item.itemId.toString () in validItems &&
             (ownerAddress ? (item.owner === ownerAddress) : true) &&
             (collectionId ? (validItems [item.item.itemId].collection === collectionId) : true)
