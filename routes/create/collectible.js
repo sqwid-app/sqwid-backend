@@ -135,8 +135,6 @@ const verifyItem = async (req, res, next) => {
                     meta = response.data;
                 } catch (err) {}
 
-                // <here check the media for inappropiate content>
-
                 let addItem = firebase.collection ('collectibles').add ({
                     id,
                     uri: ipfsURI,
@@ -147,6 +145,7 @@ const verifyItem = async (req, res, next) => {
                     approved: true
                 });
 
+                // for now, we're just going to approve the item
                 let allowItem = firebase.collection ('blacklists').doc ('collectibles').update ({
                     allowed: FieldValue.arrayUnion ({
                         id,

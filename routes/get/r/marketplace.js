@@ -9,6 +9,8 @@ const getNetwork = require ('../../../lib/getNetwork');
 const firebase = require ('../../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
 const redisClient = require ('../../../lib/redis');
+const { getUser } = require('../user');
+const { getCloudflareURL } = require('../../../lib/getIPFSURL');
 // const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 
@@ -16,6 +18,22 @@ const getNameByEVMAddress = async (address) => {
     const res = await firebase.collection ('users').where ('evmAddress', '==', address).get ();
     if (!res.empty) return res.docs [0].data ().displayName;
     else return address;
+}
+
+
+const getUserBySubstrateAddress = async (address) => {
+    try {
+        const res = await getUser ({ params: { identifier: address } });
+        return {
+            evmAddress: res.evmAddress,
+            displayName: res.displayName,
+        };
+    } catch (e) {
+        return {
+            evmAddress: address,
+            displayName: address,
+        }
+    }
 }
 
 const getSaleData = item => {
@@ -64,6 +82,28 @@ const fetchCollectionData = async (collectionId) => {
     return { ...collection.data (), id: collectionId };
 };
 
+const fetchCollection = async (req, res) => {
+    const { collectionId } = req.params;
+
+    colres = await byId ({ params: { id: collectionId } });
+    if (!colres) return res.status (404).send ({ error: 'Collection does not exist.' });
+
+    const { evmAddress, displayName } = await getUserBySubstrateAddress (colres.collection.data.owner);
+
+    let collection = {
+        name: colres.collection.data.name,
+        creator: {
+            id: evmAddress,
+            name: displayName,
+            thumb: `https://avatars.dicebear.com/api/identicon/${evmAddress}.svg`
+        },
+        thumb: colres.collection.data.image
+    }
+
+    res?.json (collection);
+    return collection;
+};
+
 const fetchPosition = async (req, res) => {
     const { provider } = await getWallet ();
     const { positionId } = req.params;
@@ -71,9 +111,9 @@ const fetchPosition = async (req, res) => {
     const collectiblesRef = firebase.collection ('collectibles');
     try {
         const item = await marketContract.fetchPosition (positionId);
-        const snapshot = await collectiblesRef.where ('approved', '==', true).where ('id', '==', Number (item.item.itemId)).get ();
+        const snapshot = await collectiblesRef.where ('id', '==', Number (item.item.itemId)).get ();
 
-        if (snapshot.empty) throw new Error (`Collectible does not exist or is not approved.`);
+        if (snapshot.empty) throw new Error (`Collectible does not exist.`);
 
         const collectibleData = snapshot.docs [0].data ();
 
@@ -360,6 +400,7 @@ module.exports = {
         router.get ('/by-owner/:ownerAddress/:type', fetchPositions);
         router.get ('/by-collection/:collectionId/:type', fetchPositions);
         router.get ('/position/:positionId', fetchPosition);
+        router.get ('/collection/:collectionId', fetchCollection);
         return router;
     }
 }
