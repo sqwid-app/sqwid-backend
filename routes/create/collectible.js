@@ -120,14 +120,14 @@ const verifyItem = async (req, res, next) => {
     
     const creatorProimse = getEVMAddress (req.user.address);
     const collectionDocPromise = firebase.collection ('collections').doc (collectionId).get ();
-
-    const [creator, collectionDoc] = await Promise.all ([creatorProimse, collectionDocPromise]);
+    const collectiblePromise = firebase.collection ('collectibles').where ('id', '==', id).get ();
+    const [creator, collectionDoc, collectible] = await Promise.all ([creatorProimse, collectionDocPromise, collectiblePromise]);
     
+    if (!collectible.empty) return res.status (400).json ({
+        error: 'Collectible already verified.'
+    });
     // verify user owns collection
     if (collectionDoc.exists && (collectionDoc.data ().owner === req.user.address || collectionId === "ASwOXeRM5DfghnURP4g2")) {
-        if (collectionDoc.data ().approved) return res.status (200).json ({
-            message: 'Item already verified.'
-        });
         try {
             const item = await marketContract.fetchItem (id);
             let ipfsURI;

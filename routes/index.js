@@ -19,31 +19,24 @@ const rateLimit = require ('express-rate-limit');
 
 const createLimiter = rateLimit ({
 	windowMs: 1 * 60 * 1000, // 1 minute
-	max: 5,
+	max: 4, // limit each IP to 4 requests per windowMs
 	standardHeaders: true,
 	legacyHeaders: false,
 });
-
-// const authLimiter = rateLimit ({
-//     windowMs: 1 * 60 * 1000, // 1 minute
-//     max: 5,
-//     standardHeaders: true,
-//     legacyHeaders: false,
-// });
 
 module.exports = () => {
     const router = Router ();
 
     router.use ('/auth', createLimiter, getAuthRoutes ());
-    router.use ('/nonce', getNonceRoutes ());
+    router.use ('/nonce', createLimiter, getNonceRoutes ());
     router.use ('/create/collectible', createLimiter, getCreateCollectibleRoutes ());
     router.use ('/create/collection', createLimiter, getCreateCollectionRoutes ());
     router.use ('/get/collections', getCollectionsRoutes ());
     router.use ('/get/marketplace', getMarketplaceRoutes ());
     router.use ('/get/user', getUserRoutes ());
     router.use ('/edit/user', getEditUserRoutes ());
-    router.use ('/sync/collectibles', getSyncCollectiblesRoutes ());
     
+    // router.use ('/sync/collectibles', getSyncCollectiblesRoutes ());
     // router.use ('/get/collectibles', getCollectiblesRoutes ());
     // router.use ('/get/collectible', getCollectibleRoutes ());
     // router.use ('/get/r/marketplace', getMarketplaceOldRoutes ());
