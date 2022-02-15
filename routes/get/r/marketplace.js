@@ -139,7 +139,10 @@ const fetchPosition = async (req, res) => {
             positionId: Number (item.positionId),
             itemId: Number (item.item.itemId),
             tokenId: Number (item.item.tokenId),
-            collection: collection [0].data,
+            collection: {
+                ...collection [0].data,
+                id: collection [0].id
+            },
             creator: {
                 address: item.item.creator,
                 avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
