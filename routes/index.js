@@ -11,15 +11,15 @@ const getUserRoutes = require ('./get/user').router;
 const getEditUserRoutes = require ('./edit/user');
 // const getVerifyJWTRoutes = require ('./verifyjwt');
 // const getEditEVMAddressRoutes = require ('./edit/evmAddress');
-const getSyncCollectiblesRoutes = require ('./sync/collectibles');
-const getMarketplaceRoutes = require ('./get/r/marketplace').router;
+// const getSyncCollectiblesRoutes = require ('./sync/collectibles');
+const getMarketplaceRoutes = require ('./get/marketplace').router;
 // const getMarketplaceOldRoutes = require ('./get/r/marketplace_old').router;
 
 const rateLimit = require ('express-rate-limit');
 
 const createLimiter = rateLimit ({
 	windowMs: 1 * 60 * 1000, // 1 minute
-	max: 4, // limit each IP to 4 requests per windowMs
+	max: 6, // limit each IP to 6 requests per windowMs
 	standardHeaders: true,
 	legacyHeaders: false,
 });

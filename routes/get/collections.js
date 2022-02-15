@@ -115,9 +115,9 @@ module.exports = {
         const router = Router ();
 
         router.get ('/owner/:address', byOwner);
-        router.get ('/name/:name', byName);
+        // router.get ('/name/:name', byName); // re-enable when we implement the search
         router.get ('/id/:id', byId);
-        router.get ('/all', all);
+        // router.get ('/all', all); 
         
         return router;
     },

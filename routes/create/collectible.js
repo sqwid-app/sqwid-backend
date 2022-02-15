@@ -16,6 +16,7 @@ const cors = require ('cors');
 const { getWallet } = require('../../lib/getWallet');
 const { getCloudflareURL } = require('../../lib/getIPFSURL');
 const axios = require ('axios');
+const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
@@ -118,16 +119,18 @@ const verifyItem = async (req, res, next) => {
     const { id, collection } = req.body;
     const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';
     
-    const creatorProimse = getEVMAddress (req.user.address);
-    const collectionDocPromise = firebase.collection ('collections').doc (collectionId).get ();
-    const collectiblePromise = firebase.collection ('collectibles').where ('id', '==', id).get ();
-    const [creator, collectionDoc, collectible] = await Promise.all ([creatorProimse, collectionDocPromise, collectiblePromise]);
-    
-    if (!collectible.empty) return res.status (400).json ({
+    const creatorPromise = getEVMAddress (req.user.address);
+    // const collectionDocPromise = firebase.collection ('collections').doc (collectionId).get ();
+    const collectionDocPromise = getDbCollections ([collectionId]);
+    // const collectiblePromise = firebase.collection ('collectibles').where ('id', '==', id).get ();
+    const collectiblePromise = getDbCollectibles ([id]);
+    const [creator, collectionDoc, collectible] = await Promise.all ([creatorPromise, collectionDocPromise, collectiblePromise]);
+    console.log (collectible);
+    if (collectible.length) return res.status (400).json ({
         error: 'Collectible already verified.'
     });
     // verify user owns collection
-    if (collectionDoc.exists && (collectionDoc.data ().owner === req.user.address || collectionId === "ASwOXeRM5DfghnURP4g2")) {
+    if (collectionDoc.length && (collectionDoc [0].data.owner === creator || collectionId === "ASwOXeRM5DfghnURP4g2")) {
         try {
             const item = await marketContract.fetchItem (id);
             let ipfsURI;

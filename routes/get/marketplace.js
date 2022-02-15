@@ -1,20 +1,20 @@
 const ethers = require ('ethers');
 const { Router } = require ('express');
 // const collectibleContractABI = require ('../../../contracts/SqwidERC1155').ABI;
-const marketplaceContractABI = require ('../../../contracts/SqwidMarketplace').ABI;
-const utilityContractABI = require ('../../../contracts/SqwidUtility').ABI;
+const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
+const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const axios = require ('axios');
-const { getWallet } = require ('../../../lib/getWallet');
-const { byId } = require ('../collections');
-const getNetwork = require ('../../../lib/getNetwork');
-const firebase = require ('../../../lib/firebase');
+const { getWallet } = require ('../../lib/getWallet');
+const { byId } = require ('./collections');
+const getNetwork = require ('../../lib/getNetwork');
+const firebase = require ('../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
-const redisClient = require ('../../../lib/redis');
-const { getUser } = require('../user');
-const { getCloudflareURL } = require('../../../lib/getIPFSURL');
-const client = require('../../../lib/redis');
-const { getSubstrateAddress } = require('../../../lib/getSubstrateAddress');
-const { getEVMAddress } = require('../../../lib/getEVMAddress');
+const redisClient = require ('../../lib/redis');
+const { getUser } = require('./user');
+const { getCloudflareURL } = require('../../lib/getIPFSURL');
+const client = require('../../lib/redis');
+const { getSubstrateAddress } = require('../../lib/getSubstrateAddress');
+const { getEVMAddress } = require('../../lib/getEVMAddress');
 // const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
@@ -501,5 +501,6 @@ module.exports = {
         router.get ('/collection/:collectionId', fetchCollection);
         return router;
     },
-    getDbCollections
+    getDbCollections,
+    getDbCollectibles
 }
