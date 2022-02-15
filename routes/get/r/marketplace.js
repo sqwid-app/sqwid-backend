@@ -13,6 +13,8 @@ const redisClient = require ('../../../lib/redis');
 const { getUser } = require('../user');
 const { getCloudflareURL } = require('../../../lib/getIPFSURL');
 const client = require('../../../lib/redis');
+const { getSubstrateAddress } = require('../../../lib/getSubstrateAddress');
+const { getEVMAddress } = require('../../../lib/getEVMAddress');
 // const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
@@ -88,23 +90,25 @@ const fetchCollectionData = async (collectionId) => {
 const fetchCollection = async (req, res) => {
     const { collectionId } = req.params;
 
-    colres = await byId ({ params: { id: collectionId } });
-    if (!colres) return res.status (404).send ({ error: 'Collection does not exist.' });
+    let collection = await getDbCollections ([collectionId]);
 
-    const { evmAddress, displayName } = await getUserBySubstrateAddress (colres.collection.data.owner);
+    if (!collection.length) return res.status (404).send ({ error: 'Collection does not exist.' });
+    collection = collection [0].data;
+    let user = await getNamesByEVMAddresses ([collection.owner]);
+    user = user [0];
 
-    let collection = {
-        name: colres.collection.data.name,
+    let collectionResponse = {
+        name: collection.name,
         creator: {
-            id: evmAddress,
-            name: displayName,
-            thumb: `https://avatars.dicebear.com/api/identicon/${evmAddress}.svg`
+            id: user.address,
+            name: user.name,
+            thumb: `https://avatars.dicebear.com/api/identicon/${user.address}.svg`
         },
-        thumb: colres.collection.data.image
+        thumb: collection.image
     }
 
-    res?.json (collection);
-    return collection;
+    res?.json (collectionResponse);
+    return collectionResponse;
 };
 
 const fetchPosition = async (req, res) => {
@@ -201,9 +205,13 @@ const getDbCollectibles = async (items) => {
     // set cache
     const redisSetQuery = client.multi ();
     fResult.forEach (item => {
+        delete item ['createdAt'];
         if (item.approved) {
-            delete item ['createdAt'];
             redisSetQuery.set (`collectible:${item.id}`, JSON.stringify (item));
+        } else {
+            redisSetQuery.set (`collectible:${item.id}`, JSON.stringify (item), {
+                EX: 60 * 5 // 5 minutes
+            });
         }
     });
     redisSetQuery.exec ();
@@ -285,7 +293,7 @@ const getNamesByEVMAddresses = async (addresses) => {
     const redisSetQuery = client.multi ();
     fResult.forEach (user => {
         redisSetQuery.set (`displayNames:${user.address}`, user.name, {
-            EX: 600
+            EX: 60 * 10 // 10 minutes
         });
     });
 
@@ -489,5 +497,6 @@ module.exports = {
         router.get ('/position/:positionId', fetchPosition);
         router.get ('/collection/:collectionId', fetchCollection);
         return router;
-    }
+    },
+    getDbCollections
 }

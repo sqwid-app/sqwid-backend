@@ -132,12 +132,16 @@ const verifyItem = async (req, res, next) => {
             const item = await marketContract.fetchItem (id);
             let ipfsURI;
             if (item.creator === creator) {
-                ipfsURI = await tokenContract.uri (item.tokenId);
                 let meta = {};
                 try {
+                    ipfsURI = await tokenContract.uri (item.tokenId);
                     const response = await axios (getCloudflareURL (ipfsURI));
                     meta = response.data;
                 } catch (err) {}
+
+                if (!meta.name) return res.status (400).json ({
+                    error: 'Blockchain item not found'
+                });
 
                 let addItem = firebase.collection ('collectibles').add ({
                     id,
@@ -146,10 +150,11 @@ const verifyItem = async (req, res, next) => {
                     createdAt: new Date (),
                     creator,
                     meta,
-                    approved: true
+                    approved: false
                 });
 
                 // for now, we're just going to approve the item
+                // do this on the verifier
                 let allowItem = firebase.collection ('blacklists').doc ('collectibles').update ({
                     allowed: FieldValue.arrayUnion ({
                         id,
