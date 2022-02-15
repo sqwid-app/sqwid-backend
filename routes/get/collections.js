@@ -1,5 +1,6 @@
 const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
+const { getEVMAddress } = require('../../lib/getEVMAddress');
 // const { getEVMAddress } = require('../../lib/getEVMAddress');
 
 const getSubstrateAddress = async (evmAddress) => {
@@ -13,17 +14,10 @@ const byOwner = async (req, res) => {
     let address;
     let snapshot = {};
     if (req.params.address.startsWith ('0x')) {
-        address = await getSubstrateAddress (req.params.address);
-        if (address) {
-            snapshot = await collectionsRef.where ('owner', '==', address).get ();            
-        } else {
-            res.status (400).send ({
-                message: 'Invalid address'
-            });
-            return;
-        }
+        snapshot = await collectionsRef.where ('owner', '==', req.params.address).get ();            
     } else {
-        snapshot = await collectionsRef.where ('owner', '==', req.params.address).get ();
+        address = await getEVMAddress (req.params.address);
+        snapshot = await collectionsRef.where ('owner', '==', address).get ();
     }
     
     if (snapshot.empty) {
