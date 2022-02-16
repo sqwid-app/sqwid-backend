@@ -145,7 +145,7 @@ const verifyItem = async (req, res, next) => {
                     error: 'Blockchain item not found'
                 });
 
-                let addItem = firebase.collection ('collectibles').add ({
+                await firebase.collection ('collectibles').add ({
                     id,
                     uri: ipfsURI,
                     collectionId,
@@ -157,14 +157,14 @@ const verifyItem = async (req, res, next) => {
 
                 // for now, we're just going to approve the item
                 // do this on the verifier
-                let allowItem = firebase.collection ('blacklists').doc ('collectibles').update ({
-                    allowed: FieldValue.arrayUnion ({
-                        id,
-                        collection: collectionId
-                    })
-                });
+                // let allowItem = firebase.collection ('blacklists').doc ('collectibles').update ({
+                //     allowed: FieldValue.arrayUnion ({
+                //         id,
+                //         collection: collectionId
+                //     })
+                // });
 
-                await Promise.all ([addItem, allowItem]);
+                // await Promise.all ([addItem, allowItem]);
 
                 res.status (200).json ({
                     message: 'Item verified.'
