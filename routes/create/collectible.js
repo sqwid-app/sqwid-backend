@@ -125,7 +125,6 @@ const verifyItem = async (req, res, next) => {
     // const collectiblePromise = firebase.collection ('collectibles').where ('id', '==', id).get ();
     const collectiblePromise = getDbCollectibles ([id]);
     const [creator, collectionDoc, collectible] = await Promise.all ([creatorPromise, collectionDocPromise, collectiblePromise]);
-    console.log (collectible);
     if (collectible.length) return res.status (400).json ({
         error: 'Collectible already verified.'
     });
@@ -153,7 +152,7 @@ const verifyItem = async (req, res, next) => {
                     createdAt: new Date (),
                     creator,
                     meta,
-                    approved: false
+                    approved: null
                 });
 
                 // for now, we're just going to approve the item

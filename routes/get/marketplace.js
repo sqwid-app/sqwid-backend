@@ -118,6 +118,8 @@ const fetchPosition = async (req, res) => {
     try {
         const item = await marketContract.fetchPosition (positionId);
 
+        if (!Number (item.amount)) return res.status (404).send ({ error: 'Position does not exist.' });
+
         let collectibleData = await getDbCollectibles ([Number (item.item.itemId)]);
 
         if (!collectibleData.length) throw new Error (`Collectible does not exist.`);
