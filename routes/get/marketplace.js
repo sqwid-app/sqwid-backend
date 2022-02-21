@@ -328,11 +328,8 @@ const fetchPositions = async (req, res) => {
     const marketContract = await utilityContract (provider);
     try {
         const validIdsPromise = getDbApprovedIds ()
-        console.time ('fetchPositions');
         const allRawItemsPromise = type ? marketContract.fetchPositionsByState (Number (type)) : marketContract.fetchAddressPositions (ownerAddress);
         const [allowedIds, allRawItems] = await Promise.all ([validIdsPromise, allRawItemsPromise]);
-        console.log ('all raw items', allRawItems.length);
-        console.timeEnd ('fetchPositions');
         const validItems = allowedIds.reduce ((acc, curr) => {
             acc [curr.id] = curr;
             return acc;
