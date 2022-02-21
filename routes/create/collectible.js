@@ -21,7 +21,7 @@ const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
-
+/*
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
     limits: {
@@ -111,6 +111,7 @@ let sync = async (req, res, next) => {
         message: 'Sync complete.'
     });
 }
+*/
 
 const verifyItem = async (req, res, next) => {
     const { provider } = await getWallet ();
@@ -120,9 +121,7 @@ const verifyItem = async (req, res, next) => {
     const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';
     
     const creatorPromise = getEVMAddress (req.user.address);
-    // const collectionDocPromise = firebase.collection ('collections').doc (collectionId).get ();
     const collectionDocPromise = getDbCollections ([collectionId]);
-    // const collectiblePromise = firebase.collection ('collectibles').where ('id', '==', id).get ();
     const collectiblePromise = getDbCollectibles ([id]);
     const [creator, collectionDoc, collectible] = await Promise.all ([creatorPromise, collectionDocPromise, collectiblePromise]);
     if (collectible.length) return res.status (400).json ({
@@ -155,17 +154,6 @@ const verifyItem = async (req, res, next) => {
                     approved: null
                 });
 
-                // for now, we're just going to approve the item
-                // do this on the verifier
-                // let allowItem = firebase.collection ('blacklists').doc ('collectibles').update ({
-                //     allowed: FieldValue.arrayUnion ({
-                //         id,
-                //         collection: collectionId
-                //     })
-                // });
-
-                // await Promise.all ([addItem, allowItem]);
-
                 res.status (200).json ({
                     message: 'Item verified.'
                 });
@@ -188,8 +176,6 @@ module.exports = () => {
     const router = Router ();
     router.use (cors ());
 
-    // router.post ('/', [ verify, mediaUpload.fields ([{ name: 'fileData', maxCount: 1 }, { name: 'coverData', maxCount: 1 }]), cors ({ origin: '*' }) ], upload);
-    // router.get ('/sync', sync);
     router.post ('/verify', verify, verifyItem);
 
     return router;

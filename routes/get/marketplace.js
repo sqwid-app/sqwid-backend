@@ -1,45 +1,12 @@
 const ethers = require ('ethers');
 const { Router } = require ('express');
-// const collectibleContractABI = require ('../../../contracts/SqwidERC1155').ABI;
-const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
-const axios = require ('axios');
 const { getWallet } = require ('../../lib/getWallet');
-const { byId } = require ('./collections');
 const getNetwork = require ('../../lib/getNetwork');
 const firebase = require ('../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
-const redisClient = require ('../../lib/redis');
-const { getUser } = require('./user');
-const { getCloudflareURL } = require('../../lib/getIPFSURL');
-const client = require('../../lib/redis');
-const { getSubstrateAddress } = require('../../lib/getSubstrateAddress');
-const { getEVMAddress } = require('../../lib/getEVMAddress');
-// const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cacheCollections, fetchCachedNames, cacheNames } = require('../../lib/caching');
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
-
-const getNameByEVMAddress = async (address) => {
-    const res = await firebase.collection ('users').where ('evmAddress', '==', address).get ();
-    if (!res.empty) return res.docs [0].data ().displayName;
-    else return address;
-}
-
-
-const getUserBySubstrateAddress = async (address) => {
-    try {
-        const res = await getUser ({ params: { identifier: address } });
-        return {
-            evmAddress: res.evmAddress,
-            displayName: res.displayName,
-        };
-    } catch (e) {
-        return {
-            evmAddress: address,
-            displayName: address,
-        }
-    }
-}
 
 const getSaleData = item => {
     return {
@@ -79,13 +46,6 @@ const getLoanData = (item, names) => {
         }
     }
 }
-
-const fetchCollectionData = async (collectionId) => {
-    const collection = await firebase.collection ('collections').doc (collectionId).get ();
-    if (!collection.exists) throw new Error (`Collection does not exist.`);
-
-    return { ...collection.data (), id: collectionId };
-};
 
 const fetchCollection = async (req, res) => {
     const { collectionId } = req.params;
@@ -184,18 +144,9 @@ const sliceIntoChunks = (arr, chunkSize) => {
 
 const getDbCollectibles = async (items) => {
     // get from cache
-    const redisGetQuery = client.multi ();
-    items.forEach (item => redisGetQuery.get (`collectible:${item}`));
-    const cachedItems = await redisGetQuery.exec ();
-    const res = [];
-    for (let i = 0; i < items.length; i++) {
-        if (cachedItems [i]) {
-            res.push (JSON.parse (cachedItems [i]));
-            items [i] = null;
-        }
-    }
-    items = items.filter (item => item);
-    if (!items.length) return res;
+    const { cached, leftoverItems } = await fetchCachedCollectibles (items);
+    if (leftoverItems.length === 0) return cached;
+    items = leftoverItems;
     // firebase read
     const collectiblesRef = firebase.collection ('collectibles');
     const chunks = sliceIntoChunks (items, 10);
@@ -208,20 +159,8 @@ const getDbCollectibles = async (items) => {
         .map (doc => doc.data ());
 
     // set cache
-    const redisSetQuery = client.multi ();
-    fResult.forEach (item => {
-        delete item ['createdAt'];
-        if (item.approved) {
-            redisSetQuery.set (`collectible:${item.id}`, JSON.stringify (item));
-        } else {
-            redisSetQuery.set (`collectible:${item.id}`, JSON.stringify (item), {
-                EX: 60 * 5 // 5 minutes
-            });
-        }
-    });
-    redisSetQuery.exec ();
-    
-    return res.concat (fResult);
+    cacheCollectibles (fResult);
+    return cached.concat (fResult);
 }
 
 const getDbApprovedIds = async () => {
@@ -231,18 +170,9 @@ const getDbApprovedIds = async () => {
 
 const getDbCollections = async (items) => {
     // get from cache
-    const redisGetQuery = client.multi ();
-    items.forEach (item => redisGetQuery.get (`collection:${item}`));
-    const cachedItems = await redisGetQuery.exec ();
-    const res = [];
-    for (let i = 0; i < items.length; i++) {
-        if (cachedItems [i]) {
-            res.push ({ id: items [i], data: JSON.parse (cachedItems [i]) });
-            items [i] = null;
-        }
-    }
-    items = items.filter (item => item);
-    if (!items.length) return res;
+    const { cached, leftoverItems } = await fetchCachedCollections (items);
+    if (leftoverItems.length === 0) return cached;
+    items = leftoverItems;
     // firebase read
     const collectionsRef = firebase.collection ('collections');
     const chunks = sliceIntoChunks (items, 10);
@@ -255,35 +185,15 @@ const getDbCollections = async (items) => {
         .map (doc => { return { id: doc.id, data: doc.data () }});
 
     // set cache
-    const redisSetQuery = client.multi ();
-    fResult.forEach (collection => {
-        delete collection.data ['created'];
-        redisSetQuery.set (`collection:${collection.id}`, JSON.stringify (collection.data));
-    });
-    redisSetQuery.exec ();
+    cacheCollections (fResult);
 
-    return res.concat (fResult);
+    return cached.concat (fResult);
 }
 
 const getNamesByEVMAddresses = async (addresses) => {
-    const redisGetQuery = client.multi ();
-    addresses = addresses.filter (address => Number (address) !== 0);
-    addresses.forEach (address => redisGetQuery.get (`displayNames:${address}`));
-    const names = await redisGetQuery.exec ();
-
-    let result = [];
-    for (let i = 0; i < addresses.length; i++) {
-        if (names [i]) {
-            result.push ({
-                address: addresses [i],
-                name: names [i]
-            });
-            addresses [i] = null;
-        }
-    }
-
-    addresses = addresses.filter (address => address);
-    if (!addresses.length) return result;
+    const { cached, leftoverItems } = await fetchCachedNames (addresses);
+    if (leftoverItems.length === 0) return cached;
+    addresses = leftoverItems;
 
     const usersRef = firebase.collection ('users');
     const chunks = sliceIntoChunks (addresses, 10);
@@ -295,16 +205,9 @@ const getNamesByEVMAddresses = async (addresses) => {
         .reduce ((acc, curr) => [...acc, ...curr], [])
         .map (doc => { return { name: doc.data ().displayName, address: doc.data ().evmAddress }});
     
-    const redisSetQuery = client.multi ();
-    fResult.forEach (user => {
-        redisSetQuery.set (`displayNames:${user.address}`, user.name, {
-            EX: 60 * 10 // 10 minutes
-        });
-    });
-
-    redisSetQuery.exec ();
+    cacheNames (fResult);
     
-    return result.concat (fResult);
+    return cached.concat (fResult);
 }
 
 const buildObjectsFromItems = async (items, validItems) => {
