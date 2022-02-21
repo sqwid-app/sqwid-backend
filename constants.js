@@ -21,5 +21,5 @@ const networks = {
 
 module.exports = {
     networks,
-    defaultNetwork: 'reef_mainnet'
+    defaultNetwork: process.env.DEFAULT_NETWORK || 'reef_mainnet'
 }
