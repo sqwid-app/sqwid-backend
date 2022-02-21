@@ -11,8 +11,9 @@ const networks = {
     reef_mainnet: {
         rpc: 'wss://rpc.reefscan.com/ws',
         contracts: {
-            marketplace: '',
-            erc1155: '',
+            marketplace: '0xe124E8bD72Df842189e6E0762558191f267E5E9d',
+            erc1155: '0x5728847Ca5d2466dE6AcD33597D874f480acdAdB',
+            utility: '0x52CD9d5B4A9a3610Bd87668B5158B7d7259CA430'
         },
         useCache: true
     }
@@ -20,5 +21,5 @@ const networks = {
 
 module.exports = {
     networks,
-    defaultNetwork: 'reef_testnet'
+    defaultNetwork: 'reef_mainnet'
 }

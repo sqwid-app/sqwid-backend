@@ -2,13 +2,13 @@ const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
 const ethers = require ('ethers');
-const multer = require ('multer');
-const { NFTStorage, File } = require ('nft.storage');
+// const multer = require ('multer');
+// const { NFTStorage, File } = require ('nft.storage');
 const getNetwork = require('../../lib/getNetwork');
-const { FieldValue } = require ('firebase-admin').firestore;
+// const { FieldValue } = require ('firebase-admin').firestore;
 
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
-const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
+// const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
@@ -19,7 +19,7 @@ const axios = require ('axios');
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+// const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 /*
 const mediaUpload = multer ({

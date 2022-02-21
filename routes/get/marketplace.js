@@ -247,7 +247,7 @@ const fetchSummary = async (req, res) => {
         const validIdsPromise = getDbApprovedIds ()
         const rawItemsPromises = Promise.all (new Array (4).fill (null).map ((_, i) => marketContract.fetchPositionsByState (i + 1)));
         const [allowedIds, allRawItems] = await Promise.all ([validIdsPromise, rawItemsPromises]);
-
+        
         const validItems = allowedIds.reduce ((acc, curr) => {
             acc [curr.id] = curr;
             return acc;
