@@ -4,6 +4,7 @@ const { verify } = require ('../../middleware/auth');
 
 const multer = require ('multer');
 const { NFTStorage, File } = require ('nft.storage');
+const { getEVMAddress } = require('../../lib/getEVMAddress');
 
 const imageUpload = multer ({
     storage: multer.memoryStorage (),
@@ -13,10 +14,11 @@ const imageUpload = multer ({
 });
 
 const createCollection = async (req, res, next) => {
+    const ownerEVMAddress = await getEVMAddress (req.user.address);
     let col = {
         name: req.body.name || '',
         description: req.body.description || '',
-        owner: req.user.address,
+        owner: ownerEVMAddress,
         created: new Date ().getTime (),
         image: ''
     }

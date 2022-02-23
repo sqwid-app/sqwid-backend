@@ -1,22 +1,27 @@
 const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
+const ethers = require ('ethers');
+// const multer = require ('multer');
+// const { NFTStorage, File } = require ('nft.storage');
+const getNetwork = require('../../lib/getNetwork');
+// const { FieldValue } = require ('firebase-admin').firestore;
 
-const multer = require ('multer');
-const { NFTStorage, File } = require ('nft.storage');
-
-// const ethers = require ('ethers');
-
-// const { getWallet } = require ('../../lib/getWallet');
-
-// const { ABI } = require ('../../contracts/SqwidERC1155');
-
-// const { getCloudflareURL } = require ('../../lib/getIPFSURL');
-// const { default: axios } = require('axios');
+const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
+// const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
+const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const cors = require ('cors');
+const { getWallet } = require('../../lib/getWallet');
+const { getCloudflareURL } = require('../../lib/getIPFSURL');
+const axios = require ('axios');
+const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 
+const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+// const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+/*
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
     limits: {
@@ -33,7 +38,6 @@ let upload = async (req, res, next) => {
     let col = req.body.collection || "ASwOXeRM5DfghnURP4g2";
     const collection = await firebase.collection ('collections').doc (col).get ();
     let creator = await getEVMAddress (req.user.address);
-    // console.log (creator);
 
     if (collection.exists) {
         if (collection.data ().owner === req.user.address || col === "ASwOXeRM5DfghnURP4g2") {
@@ -107,13 +111,72 @@ let sync = async (req, res, next) => {
         message: 'Sync complete.'
     });
 }
+*/
+
+const verifyItem = async (req, res, next) => {
+    const { provider } = await getWallet ();
+    const marketContract = await utilityContract (provider);
+    const tokenContract = await collectibleContract (provider);
+    const { id, collection } = req.body;
+    const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';
+    
+    const creatorPromise = getEVMAddress (req.user.address);
+    const collectionDocPromise = getDbCollections ([collectionId]);
+    const collectiblePromise = getDbCollectibles ([id]);
+    const [creator, collectionDoc, collectible] = await Promise.all ([creatorPromise, collectionDocPromise, collectiblePromise]);
+    if (collectible.length) return res.status (400).json ({
+        error: 'Collectible already verified.'
+    });
+    // verify user owns collection
+    if (collectionDoc.length && (collectionDoc [0].data.owner === creator || collectionId === "ASwOXeRM5DfghnURP4g2")) {
+        try {
+            const item = await marketContract.fetchItem (id);
+            let ipfsURI;
+            if (item.creator === creator) {
+                let meta = {};
+                try {
+                    ipfsURI = await tokenContract.uri (item.tokenId);
+                    const response = await axios (getCloudflareURL (ipfsURI));
+                    meta = response.data;
+                } catch (err) {}
+
+                if (!meta.name) return res.status (400).json ({
+                    error: 'Blockchain item not found'
+                });
+
+                await firebase.collection ('collectibles').add ({
+                    id,
+                    uri: ipfsURI,
+                    collectionId,
+                    createdAt: new Date (),
+                    creator,
+                    meta,
+                    approved: null
+                });
+
+                res.status (200).json ({
+                    message: 'Item verified.'
+                });
+            } else {
+                res.status (403).json ({
+                    error: 'You are not the owner of this item.'
+                });
+            }
+        } catch (err) {
+            next (err);
+        }
+    } else {
+        return res.status (403).json ({
+            error: 'You are not the owner of this collection.'
+        });
+    }
+}
 
 module.exports = () => {
     const router = Router ();
     router.use (cors ());
 
-    router.post ('/', [ verify, mediaUpload.fields ([{ name: 'fileData', maxCount: 1 }, { name: 'coverData', maxCount: 1 }]), cors ({ origin: '*' }) ], upload);
-    router.get ('/sync', sync);
+    router.post ('/verify', verify, verifyItem);
 
     return router;
 }
