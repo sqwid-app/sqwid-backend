@@ -6,7 +6,72 @@ const getNetwork = require ('../../lib/getNetwork');
 const firebase = require ('../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
 const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cacheCollections, fetchCachedNames, cacheNames } = require('../../lib/caching');
-const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+let provider, utilityContract;
+getWallet ().then (async wallet => {
+    provider = wallet.provider;
+    utilityContract = UtilityContract (provider);
+    console.log ('Wallet loaded.');
+});
+let collectionsOfApprovedItems = {};
+let approvedIds = {};
+
+firebase.collection ('blacklists').doc ('collectibles').onSnapshot (snapshot => {
+    let data = snapshot.data ();
+
+    if (!data.allowed) {
+        approvedIds = [];
+        collections = {};
+    } else {
+        collectionsOfApprovedItems = Array.from (new Set (data.allowed.map (item => item.collection)));
+        approvedIds = data.allowed.map (item => { return { id: item.id, collection: collectionsOfApprovedItems.indexOf (item.collection) } });
+        // console.log (collectionsOfApprovedItems);
+        // console.log (approvedIds);
+    }
+    // approvedIds = data.allowed || [];
+});
+
+const sliceIntoChunks = (arr, chunkSize) => {
+    const res = [];
+    for (let i = 0; i < arr.length; i += chunkSize) {
+        const chunk = arr.slice (i, i + chunkSize);
+        res.push (chunk);
+    }
+    return res;
+}
+
+const setBoolean = (packedBools, boolNumber, value) => {
+    if (value) return packedBools | 1 << boolNumber;
+    else return packedBools & ~(1) << boolNumber;
+}
+
+const maxOfArray = arr => {
+    return arr.reduce (function (a, b) {
+        return Math.max (a, b);
+    }, -Infinity);
+}
+
+const minOfArray = arr => {
+    return arr.reduce (function (a, b) {
+        return Math.min (a, b);
+    }, Infinity);
+}
+
+const getBoolsArray = arr => {
+    const max = maxOfArray (arr);
+    let filledArray = new Array (max + 1).fill (false).map ((_, i) => arr.includes (i));
+    let chunks = sliceIntoChunks (filledArray, 8);
+    let packed = [];
+    chunks.forEach ((chunk, index) => {
+        let num = 0;
+        while (chunk.length) {
+            num = setBoolean (num, chunk.length - 1, chunk [chunk.length - 1]);
+            chunk.pop ();
+        }
+        packed [index] = num;
+    });
+    return packed;
+}
 
 const getSaleData = item => {
     return {
@@ -72,11 +137,11 @@ const fetchCollection = async (req, res) => {
 };
 
 const fetchPosition = async (req, res) => {
-    const { provider } = await getWallet ();
+    // const { provider } = await getWallet ();
     const { positionId } = req.params;
-    const marketContract = await utilityContract (provider);
+    // const marketContract = await utilityContract (provider);
     try {
-        const item = await marketContract.fetchPosition (positionId);
+        const item = await utilityContract.fetchPosition (positionId);
 
         if (!Number (item.amount)) return res.status (404).send ({ error: 'Position does not exist.' });
 
@@ -133,14 +198,6 @@ const fetchPosition = async (req, res) => {
     }
 }
 
-const sliceIntoChunks = (arr, chunkSize) => {
-    const res = [];
-    for (let i = 0; i < arr.length; i += chunkSize) {
-        const chunk = arr.slice (i, i + chunkSize);
-        res.push (chunk);
-    }
-    return res;
-}
 
 const getDbCollectibles = async (items) => {
     // get from cache
@@ -210,11 +267,10 @@ const getNamesByEVMAddresses = async (addresses) => {
     return cached.concat (fResult);
 }
 
-const buildObjectsFromItems = async (items, validItems) => {
+const buildObjectsFromItems = async (items) => {
     const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
-    const collectionsSet = new Set (items.map (item => validItems [item.item.itemId.toString ()].collection));
+    const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]));
     const addresses = new Set (items.reduce ((acc, item) => [...acc, item.owner, item.item.creator, item.loanData.lender, item.auctionData.highestBidder], []));
-
     const collectiblesPromise = getDbCollectibles (itemIds);
     const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
     const collectionsPromise = getDbCollections (Array.from (collectionsSet));
@@ -240,39 +296,41 @@ const buildObjectsFromItems = async (items, validItems) => {
     }
 }
 
-const fetchSummary = async (req, res) => {
-    const { provider } = await getWallet ();
-    const marketContract = await utilityContract (provider);
-    try {
-        const validIdsPromise = getDbApprovedIds ()
-        const rawItemsPromises = Promise.all (new Array (4).fill (null).map ((_, i) => marketContract.fetchPositionsByState (i + 1)));
-        const [allowedIds, allRawItems] = await Promise.all ([validIdsPromise, rawItemsPromises]);
-        
-        const validItems = allowedIds.reduce ((acc, curr) => {
-            acc [curr.id] = curr;
-            return acc;
-        }, {});
-
-        // flatten array
-        const allRawItemsFlat = allRawItems.reduce ((acc, curr) => [...acc, ...curr], []);
-        // filter out items that are not approved
-        let rawItems = allRawItemsFlat.filter (item => (
-            Number (item.amount) > 0 &&
-            item.item.itemId.toString () in validItems
-        ));
-        rawItems = rawItems.reverse ();
-        let newItems = [];
-        let foundTotal = 0;
-        let found = new Array (4).fill (0);
-        for (let i = 0; i < rawItems.length; i++) {
-            if (foundTotal >= 4 * 4) break;
-            if (found [rawItems [i].state - 1] >= 4) continue;
-            found [rawItems [i].state - 1]++;
-            foundTotal++;
-            newItems.push (rawItems [i]);
+const constructAllowedBytes = (collectionId = null) => {
+    let allowedBytes = [];
+    if (collectionId) {
+        let idsInCollection = [];
+        for (let i = 0; i < approvedIds.length; i++) {
+            if (collectionsOfApprovedItems [approvedIds [i].collection] === collectionId) {
+                idsInCollection.push (approvedIds [i].id);
+            }
         }
+        allowedBytes = getBoolsArray (idsInCollection);
+    } else {
+        allowedBytes = getBoolsArray (approvedIds.map (item => item.id));
+    }
+    return allowedBytes;
+}
 
-        const { collectibles, collections, names } = await buildObjectsFromItems (newItems, validItems);
+const fetchSummary = async (req, res) => {
+    try {
+        let allowedBytes = constructAllowedBytes ();
+        const allRawItems = await Promise.all (
+            new Array (4)
+            .fill (null)
+            .map ((_, i) => utilityContract.fetchPositionsV2 (
+                i + 1, // state
+                ethers.constants.AddressZero, // owner
+                0, // startFrom
+                4, // limit
+                allowedBytes
+            ))
+        );
+
+        const allRawItemsFlat = allRawItems.reduce ((acc, curr) => [...acc, ...curr], []);
+        let rawItems = allRawItemsFlat.filter (item => Number (item.amount) > 0);
+
+        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
 
         let newObject = {
             sale: [],
@@ -281,12 +339,12 @@ const fetchSummary = async (req, res) => {
             loan: []
         }
         let keys = Object.keys (newObject);
-        newItems.forEach (item => {
+        rawItems.forEach (item => {
             const itemObject = {
                 positionId: Number (item.positionId),
                 itemId: Number (item.item.itemId),
                 tokenId: Number (item.item.tokenId),
-                collection: collections [validItems [item.item.itemId.toString ()].collection],
+                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]],
                 creator: {
                     address: item.item.creator,
                     avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
@@ -321,34 +379,16 @@ const fetchSummary = async (req, res) => {
 }
 
 const fetchPositions = async (req, res) => {
-    const { provider } = await getWallet ();
     const { type, ownerAddress, collectionId } = req.params;
-    const page = Number (req.query.page) || 1;
-    const perPage = Math.min (Number (req.query.perPage), 100) || 10;
-    const marketContract = await utilityContract (provider);
+    const startFrom = Number (req.query.startFrom) || 0;
+    const limit = Math.min (Number (req.query.limit), 100) || 10;
     try {
-        const validIdsPromise = getDbApprovedIds ()
-        const allRawItemsPromise = type ? marketContract.fetchPositionsByState (Number (type)) : marketContract.fetchAddressPositions (ownerAddress);
-        const [allowedIds, allRawItems] = await Promise.all ([validIdsPromise, allRawItemsPromise]);
-        const validItems = allowedIds.reduce ((acc, curr) => {
-            acc [curr.id] = curr;
-            return acc;
-        }, {});
+        let allowedBytes = constructAllowedBytes (collectionId);
 
-        // filter by verified, owner, and collection
-        let rawItems = allRawItems.filter (item => (
-            Number (item.amount) > 0 &&
-            item.item.itemId.toString () in validItems &&
-            (ownerAddress ? (item.owner === ownerAddress) : true) &&
-            (collectionId ? (validItems [item.item.itemId].collection === collectionId) : true)
-            )
-        );
+        const allRawItems = await utilityContract.fetchPositionsV2 (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, limit, allowedBytes);
+        let rawItems = allRawItems.filter (item => Number (item.positionId) > 0);
 
-        let totalItems = rawItems.length;
-        // pagination
-        rawItems = rawItems.reverse ().slice ((page - 1) * perPage, page * perPage);
-
-        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems, validItems);
+        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
         const items = [];
         for (let i = 0; i < rawItems.length; i++) {
             const item = rawItems [i];
@@ -356,7 +396,7 @@ const fetchPositions = async (req, res) => {
                 positionId: Number (item.positionId),
                 itemId: Number (item.item.itemId),
                 tokenId: Number (item.item.tokenId),
-                collection: collections [validItems [item.item.itemId.toString ()].collection],
+                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]],
                 creator: {
                     address: item.item.creator,
                     avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
@@ -380,9 +420,8 @@ const fetchPositions = async (req, res) => {
         res.status (200).json ({
             items,
             pagination: {
-                page,
-                perPage,
-                totalItems
+                lowest: minOfArray (items.map (item => item.positionId)),
+                limit
             }
         });
     } catch (err) {
@@ -398,7 +437,7 @@ module.exports = {
         const router = Router ();
         router.get ('/summary', fetchSummary);
         router.get ('/all/:type', fetchPositions);
-        router.get ('/by-owner/:ownerAddress', fetchPositions);
+        // router.get ('/by-owner/:ownerAddress', fetchPositions);
         router.get ('/by-owner/:ownerAddress/:type', fetchPositions);
         router.get ('/by-collection/:collectionId/:type', fetchPositions);
         router.get ('/position/:positionId', fetchPosition);

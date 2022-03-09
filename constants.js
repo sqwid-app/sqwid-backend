@@ -3,8 +3,8 @@ const networks = {
         rpc: 'wss://rpc-testnet.reefscan.com/ws',
         contracts: {
             marketplace: '0xbfe17d89845F2dCA11EE8C26e98ea59a67631Df3',
-			erc1155: '0xA9EF55E0987E12F82D05A01c72b683Af43c70938',
-			utility: '0x7AB030fA1953074762484167D0BA48C1bEd20CF7',
+			erc1155: '0x4B36bA56C20e73d6803b218189a5cc20eaeB9bd5',
+			utility: '0xD8b206C5576De035af6F027e79245450978972cc',
         },
         useCache: true,
     },
