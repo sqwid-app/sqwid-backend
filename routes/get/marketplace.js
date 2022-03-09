@@ -45,17 +45,8 @@ const setBoolean = (packedBools, boolNumber, value) => {
     else return packedBools & ~(1) << boolNumber;
 }
 
-const maxOfArray = arr => {
-    return arr.reduce (function (a, b) {
-        return Math.max (a, b);
-    }, -Infinity);
-}
-
-const minOfArray = arr => {
-    return arr.reduce (function (a, b) {
-        return Math.min (a, b);
-    }, Infinity);
-}
+const maxOfArray = arr => arr.reduce ((a, b) => Math.max (a, b), -Infinity);
+const minOfArray = arr => arr.reduce ((a, b) => Math.min (a, b), Infinity);
 
 const getBoolsArray = arr => {
     const max = maxOfArray (arr);
