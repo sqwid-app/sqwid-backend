@@ -40,11 +40,11 @@ const sliceIntoChunks = (arr, chunkSize) => {
     return res;
 }
 
-const setBoolean = (packedBools, boolNumber, value) => {
-    if (value) return packedBools | 1 << boolNumber;
-    else return packedBools & ~(1) << boolNumber;
-}
-
+// const setBoolean = (packedBools, boolNumber, value) => {
+//     if (value) return packedBools | 1 << boolNumber;
+//     else return packedBools & ~(1) << boolNumber;
+// }
+const setBoolean = (packedBools, boolNumber, value) => value ? packedBools | 1 << boolNumber : packedBools & ~(1) << boolNumber;
 const maxOfArray = arr => arr.reduce ((a, b) => Math.max (a, b), -Infinity);
 const minOfArray = arr => arr.reduce ((a, b) => Math.min (a, b), Infinity);
 
