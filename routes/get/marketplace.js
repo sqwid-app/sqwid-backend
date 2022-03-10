@@ -1,12 +1,15 @@
 const ethers = require ('ethers');
 const { Router } = require ('express');
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
+const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const { getWallet } = require ('../../lib/getWallet');
 const getNetwork = require ('../../lib/getNetwork');
 const firebase = require ('../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
 const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cacheCollections, fetchCachedNames, cacheNames } = require('../../lib/caching');
 const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+
 let provider, utilityContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
@@ -25,10 +28,7 @@ firebase.collection ('blacklists').doc ('collectibles').onSnapshot (snapshot => 
     } else {
         collectionsOfApprovedItems = Array.from (new Set (data.allowed.map (item => item.collection)));
         approvedIds = data.allowed.map (item => { return { id: item.id, collection: collectionsOfApprovedItems.indexOf (item.collection) } });
-        // console.log (collectionsOfApprovedItems);
-        // console.log (approvedIds);
     }
-    // approvedIds = data.allowed || [];
 });
 
 const sliceIntoChunks = (arr, chunkSize) => {
@@ -128,14 +128,13 @@ const fetchCollection = async (req, res) => {
 };
 
 const fetchPosition = async (req, res) => {
-    // const { provider } = await getWallet ();
     const { positionId } = req.params;
-    // const marketContract = await utilityContract (provider);
     try {
         const item = await utilityContract.fetchPosition (positionId);
 
         if (!Number (item.amount)) return res.status (404).send ({ error: 'Position does not exist.' });
-
+        const collectibleContract = CollectibleContract (provider, item.item.nftContract);
+        
         let collectibleData = await getDbCollectibles ([Number (item.item.itemId)]);
 
         if (!collectibleData.length) throw new Error (`Collectible does not exist.`);
@@ -144,8 +143,9 @@ const fetchPosition = async (req, res) => {
 
         const collectionPromise = getDbCollections ([collectibleData.collectionId]);
         const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner, item.auctionData.highestBidder, item.loanData.lender])));
+        const itemMetaPromise = collectibleContract.uri (item.item.tokenId);
         
-        const [collection, names] = await Promise.all ([collectionPromise, namesPromise]);
+        const [collection, names, itemMeta] = await Promise.all ([collectionPromise, namesPromise, itemMetaPromise]);
 
         let namesObj = {};
         names.forEach (name => {
@@ -178,7 +178,7 @@ const fetchPosition = async (req, res) => {
             loan: item.state === 4 ? getLoanData (item, namesObj) : null,
             marketFee: Number (item.marketFee),
             state: item.state,
-            meta: collectibleData.meta
+            meta: { ...collectibleData.meta, uri: itemMeta, tokenContract: item.item.nftContract },
         }
         res.status (200).json (itemObject);
     } catch (err) {
@@ -209,11 +209,6 @@ const getDbCollectibles = async (items) => {
     // set cache
     cacheCollectibles (fResult);
     return cached.concat (fResult);
-}
-
-const getDbApprovedIds = async () => {
-    const ids = await firebase.collection ('blacklists').doc ('collectibles').get ();
-    return ids.data ().allowed;
 }
 
 const getDbCollections = async (items) => {
@@ -428,12 +423,12 @@ module.exports = {
         const router = Router ();
         router.get ('/summary', fetchSummary);
         router.get ('/all/:type', fetchPositions);
-        // router.get ('/by-owner/:ownerAddress', fetchPositions);
         router.get ('/by-owner/:ownerAddress/:type', fetchPositions);
         router.get ('/by-collection/:collectionId/:type', fetchPositions);
         router.get ('/position/:positionId', fetchPosition);
         router.get ('/collection/:collectionId', fetchCollection);
         return router;
+        // router.get ('/by-owner/:ownerAddress', fetchPositions);
     },
     getDbCollections,
     getDbCollectibles
