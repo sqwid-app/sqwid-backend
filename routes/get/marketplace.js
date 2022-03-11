@@ -363,7 +363,7 @@ const fetchPositions = async (req, res) => {
     try {
         let allowedBytes = constructAllowedBytes (collectionId);
 
-        const allRawItems = await utilityContract.fetchPositionsV2 (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, Math.min (limit, startFrom), allowedBytes);
+        const allRawItems = await utilityContract.fetchPositionsV2 (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, startFrom ? Math.min (limit, startFrom) : limit, allowedBytes);
         let rawItems = allRawItems.filter (item => Number (item.positionId) > 0);
 
         const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
