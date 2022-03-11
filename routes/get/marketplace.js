@@ -28,6 +28,7 @@ firebase.collection ('blacklists').doc ('collectibles').onSnapshot (snapshot => 
     } else {
         collectionsOfApprovedItems = Array.from (new Set (data.allowed.map (item => item.collection)));
         approvedIds = data.allowed.map (item => { return { id: item.id, collection: collectionsOfApprovedItems.indexOf (item.collection) } });
+        approvedIds = approvedIds.sort ((a, b) => a.id - b.id);
     }
 });
 
@@ -40,27 +41,18 @@ const sliceIntoChunks = (arr, chunkSize) => {
     return res;
 }
 
-// const setBoolean = (packedBools, boolNumber, value) => {
-//     if (value) return packedBools | 1 << boolNumber;
-//     else return packedBools & ~(1) << boolNumber;
-// }
 const setBoolean = (packedBools, boolNumber, value) => value ? packedBools | 1 << boolNumber : packedBools & ~(1) << boolNumber;
 const maxOfArray = arr => arr.reduce ((a, b) => Math.max (a, b), -Infinity);
 const minOfArray = arr => arr.reduce ((a, b) => Math.min (a, b), Infinity);
 
 const getBoolsArray = arr => {
-    const max = maxOfArray (arr);
-    let filledArray = new Array (max + 1).fill (false).map ((_, i) => arr.includes (i));
-    let chunks = sliceIntoChunks (filledArray, 8);
+    const max = arr [arr.length - 1];
+    let boolArray = new Array (max + 1).fill (false);
+    arr.forEach (i => boolArray [i] = true);
     let packed = [];
-    chunks.forEach ((chunk, index) => {
-        let num = 0;
-        while (chunk.length) {
-            num = setBoolean (num, chunk.length - 1, chunk [chunk.length - 1]);
-            chunk.pop ();
-        }
-        packed [index] = num;
-    });
+    for (let i = max; i > 0; i--) {
+        packed [(i / 8) | 0] = setBoolean (packed [(i / 8) | 0] || 0, (i + 0) % 8, boolArray [i])
+    }
     return packed;
 }
 
@@ -371,7 +363,7 @@ const fetchPositions = async (req, res) => {
     try {
         let allowedBytes = constructAllowedBytes (collectionId);
 
-        const allRawItems = await utilityContract.fetchPositionsV2 (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, limit, allowedBytes);
+        const allRawItems = await utilityContract.fetchPositionsV2 (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, Math.min (limit, startFrom), allowedBytes);
         let rawItems = allRawItems.filter (item => Number (item.positionId) > 0);
 
         const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
