@@ -4,7 +4,7 @@ const networks = {
         contracts: {
             marketplace: '0xB2871bF369ce67cc0E251b449fc21A6DbAe93c2e',
 			erc1155: '0x49aC7Dc3ddCAb2e08dCb8ED1F18a0E0369515E47',
-			utility: '0x98BCbedbBd3c84232d19584fE822FaC85b45885E',
+			utility: '0x74d9c321Ec73F717c53788d70357fB146B25f5C4',
         },
         useCache: true,
     },
