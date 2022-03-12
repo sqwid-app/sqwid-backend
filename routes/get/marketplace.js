@@ -296,7 +296,7 @@ const fetchSummary = async (req, res) => {
         const allRawItems = await Promise.all (
             new Array (4)
             .fill (null)
-            .map ((_, i) => utilityContract.fetchPositionsV2 (
+            .map ((_, i) => utilityContract.fetchPositions (
                 i + 1, // state
                 ethers.constants.AddressZero, // owner
                 0, // startFrom
@@ -363,7 +363,7 @@ const fetchPositions = async (req, res) => {
     try {
         let allowedBytes = constructAllowedBytes (collectionId);
 
-        const allRawItems = await utilityContract.fetchPositionsV2 (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, startFrom ? Math.min (limit, startFrom) : limit, allowedBytes);
+        const allRawItems = await utilityContract.fetchPositions (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, startFrom ? Math.min (limit, startFrom) : limit, allowedBytes);
         let rawItems = allRawItems.filter (item => Number (item.positionId) > 0);
 
         const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
