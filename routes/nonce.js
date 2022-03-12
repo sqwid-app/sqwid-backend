@@ -2,6 +2,7 @@ const { Router } = require ('express');
 const firebase = require ('../lib/firebase');
 const generateNonce = require ('../lib/nonce');
 const { getWallet } = require ('../lib/getWallet');
+const ethers = require ('ethers');
 
 let nonce = (req, res) => {
     firebase
