@@ -284,7 +284,7 @@ const constructAllowedBytes = (collectionId = null) => {
             }
         }
         if (idsInCollection.length > 0) allowedBytes = getBoolsArray (idsInCollection);
-        else return [0];
+        else return [];
     } else {
         allowedBytes = getBoolsArray (approvedIds.map (item => item.id));
     }
@@ -363,6 +363,13 @@ const fetchPositions = async (req, res) => {
     const limit = Math.min (Number (req.query.limit), 100) || 10;
     try {
         let allowedBytes = constructAllowedBytes (collectionId);
+        if (!allowedBytes.length) return res.status (200).json ({
+            items: [],
+            pagination: {
+                lowest: 0,
+                limit
+            }
+        });
 
         const allRawItems = await utilityContract.fetchPositions (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, startFrom ? Math.min (limit, startFrom) : limit, allowedBytes);
         let rawItems = allRawItems.filter (item => Number (item.positionId) > 0);
