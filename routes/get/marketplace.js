@@ -283,7 +283,8 @@ const constructAllowedBytes = (collectionId = null) => {
                 idsInCollection.push (approvedIds [i].id);
             }
         }
-        allowedBytes = getBoolsArray (idsInCollection);
+        if (idsInCollection.length > 0) allowedBytes = getBoolsArray (idsInCollection);
+        else return [0];
     } else {
         allowedBytes = getBoolsArray (approvedIds.map (item => item.id));
     }
