@@ -136,8 +136,9 @@ const fetchPosition = async (req, res) => {
         const collectionPromise = getDbCollections ([collectibleData.collectionId]);
         const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner, item.auctionData.highestBidder, item.loanData.lender])));
         const itemMetaPromise = collectibleContract.uri (item.item.tokenId);
+        const itemRoyaltiesPromise = collectibleContract.royaltyInfo (item.item.tokenId, 100);
         
-        const [collection, names, itemMeta] = await Promise.all ([collectionPromise, namesPromise, itemMetaPromise]);
+        const [collection, names, itemMeta, itemRoyalty] = await Promise.all ([collectionPromise, namesPromise, itemMetaPromise, itemRoyaltiesPromise]);
 
         let namesObj = {};
         names.forEach (name => {
@@ -156,7 +157,8 @@ const fetchPosition = async (req, res) => {
             creator: {
                 address: item.item.creator,
                 avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                name: namesObj [item.item.creator] || item.item.creator
+                name: namesObj [item.item.creator] || item.item.creator,
+                royalty: itemRoyalty.royaltyAmount.toNumber ()
             },
             owner: {
                 address: item.owner,
