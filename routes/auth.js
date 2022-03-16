@@ -3,23 +3,25 @@ const firebase = require ('../lib/firebase');
 const { isValidSignature } = require ('../lib/verify');
 const generateNonce = require ('../lib/nonce');
 const generateToken = require ('../lib/jwt');
+const { getEVMAddress } = require('../lib/getEVMAddress');
 
 let auth = (req, res) => {
     firebase
     .collection ('users')
     .doc (req.body.address)
     .get ()
-    .then (doc => {
+    .then (async doc => {
         if (doc.exists) {
             const user = doc.data ();
             const { nonce } = user;
             const { address, signature, evmAddress } = req.body;
 
             if (isValidSignature (nonce, signature, address)) {
-                let jwt = generateToken (address);
+                const _evmAddress = await getEVMAddress (address);
+                let jwt = generateToken (address, _evmAddress);
                 doc.ref.set ({
                     nonce: generateNonce (),
-                    evmAddress
+                    evmAddress: _evmAddress
                 }, { merge: true }).then (() => {
                     res.status (200).send ({
                         status: 'success',
