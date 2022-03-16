@@ -2,6 +2,7 @@ const ethers = require ('ethers');
 const { Router } = require ('express');
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
+const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 const { getWallet } = require ('../../lib/getWallet');
 const getNetwork = require ('../../lib/getNetwork');
 const firebase = require ('../../lib/firebase');
@@ -9,11 +10,15 @@ const { FieldPath } = require ('firebase-admin').firestore;
 const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cacheCollections, fetchCachedNames, cacheNames } = require('../../lib/caching');
 const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 
-let provider, utilityContract;
+const { verify } = require ('../../middleware/auth');
+const { getEVMAddress } = require('../../lib/getEVMAddress');
+let provider, utilityContract, marketplaceContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
     utilityContract = UtilityContract (provider);
+    marketplaceContract = MarketplaceContract (provider);
     console.log ('Wallet loaded.');
 });
 let collectionsOfApprovedItems = {};
@@ -420,6 +425,41 @@ const fetchPositions = async (req, res) => {
     }
 };
 
+const fetchBalance = async (req, res) => {
+    const { address } = req.user;
+    const { provider } = await getWallet ();
+
+    try {
+        let { data: { free: bn } } = await provider.api.query.system.account (address);
+        let balance = (+ethers.utils.formatEther (bn.toString ())).toFixed (2);
+    
+        res.status (200).json ({
+            balance
+        });
+    } catch (err) {
+        console.log (err);
+        res.json ({
+            error: err.toString ()
+        });
+    }
+}
+
+const fetchWithdrawable = async (req, res) => {
+    let { evmAddress, address } = req.user;
+    try {
+        if (!evmAddress) evmAddress = await getEVMAddress (address);
+        const balance = await marketplaceContract.addressBalance (evmAddress);
+        res.status (200).json ({
+            balance: (+balance.toString ()).toFixed (2)
+        });
+    } catch (err) {
+        console.log (err);
+        res.json ({
+            error: err.toString ()
+        });
+    }
+}
+
 module.exports = {
     router: () => {
         const router = Router ();
@@ -429,8 +469,9 @@ module.exports = {
         router.get ('/by-collection/:collectionId/:type', fetchPositions);
         router.get ('/position/:positionId', fetchPosition);
         router.get ('/collection/:collectionId', fetchCollection);
+        router.get ('/balance', verify, fetchBalance);
+        router.get ('/withdrawable', verify, fetchWithdrawable);
         return router;
-        // router.get ('/by-owner/:ownerAddress', fetchPositions);
     },
     getDbCollections,
     getDbCollectibles
