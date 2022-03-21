@@ -450,7 +450,7 @@ const fetchWithdrawable = async (req, res) => {
         if (!evmAddress) evmAddress = await getEVMAddress (address);
         const balance = await marketplaceContract.addressBalance (evmAddress);
         res.status (200).json ({
-            balance: (+balance.toString ()).toFixed (2)
+            balance: (+ethers.utils.formatEther (balance.toString ())).toFixed (2)
         });
     } catch (err) {
         console.log (err);
