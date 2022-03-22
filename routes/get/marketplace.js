@@ -293,7 +293,8 @@ const constructAllowedBytes = (collectionId = null) => {
         if (idsInCollection.length > 0) allowedBytes = getBoolsArray (idsInCollection);
         else return [];
     } else {
-        allowedBytes = getBoolsArray (approvedIds.map (item => item.id));
+        if (approvedIds.length > 0) allowedBytes = getBoolsArray (approvedIds.map (item => item.id));
+        else return [];
     }
     return allowedBytes;
 }
@@ -301,6 +302,12 @@ const constructAllowedBytes = (collectionId = null) => {
 const fetchSummary = async (req, res) => {
     try {
         let allowedBytes = constructAllowedBytes ();
+        if (!allowedBytes.length) return res.status (200).json ({
+            sale: [],
+            auction: [],
+            raffle: [],
+            loan: []
+        });
         const allRawItems = await Promise.all (
             new Array (4)
             .fill (null)
