@@ -49,6 +49,10 @@ const updateFeatured = async (req, res) => {
             res.status (200).json ({
                 success: true
             });
+        } else {
+            res.status (403).json ({
+                error: 'You are not authorized to update the featured content'
+            });
         }
     } catch (err) {
         console.log (err);
