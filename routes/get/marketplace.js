@@ -11,7 +11,6 @@ const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cach
 const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
-
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
 let provider, utilityContract, marketplaceContract;
@@ -23,6 +22,7 @@ getWallet ().then (async wallet => {
 });
 let collectionsOfApprovedItems = {};
 let approvedIds = {};
+let featuredIds = [];
 
 firebase.collection ('blacklists').doc ('collectibles').onSnapshot (snapshot => {
     let data = snapshot.data ();
@@ -35,6 +35,13 @@ firebase.collection ('blacklists').doc ('collectibles').onSnapshot (snapshot => 
         approvedIds = data.allowed.map (item => { return { id: item.id, collection: collectionsOfApprovedItems.indexOf (item.collection) } });
         approvedIds = approvedIds.sort ((a, b) => a.id - b.id);
     }
+});
+
+firebase.collection ('config').doc ('collectibles').onSnapshot (snapshot => {
+    if (!snapshot.exists) return;
+    let data = snapshot.data ();
+    featuredIds = data.featured;
+    console.log (featuredIds);
 });
 
 const sliceIntoChunks = (arr, chunkSize) => {
@@ -129,7 +136,7 @@ const fetchPosition = async (req, res) => {
     try {
         const item = await utilityContract.fetchPosition (positionId);
 
-        if (!Number (item.amount)) return res.status (404).send ({ error: 'Position does not exist.' });
+        if (!Number (item.amount)) return res?.status (404).send ({ error: 'Position does not exist.' });
         const collectibleContract = CollectibleContract (provider, item.item.nftContract);
         
         let collectibleData = await getDbCollectibles ([Number (item.item.itemId)]);
@@ -179,12 +186,14 @@ const fetchPosition = async (req, res) => {
             state: item.state,
             meta: { ...collectibleData.meta, uri: itemMeta, tokenContract: item.item.nftContract },
         }
-        res.status (200).json (itemObject);
+        res?.status (200).json (itemObject);
+        return itemObject;
     } catch (err) {
         console.log (err);
-        res.json ({
+        res?.json ({
             error: err.toString ()
         });
+        return null;
     }
 }
 
@@ -371,6 +380,22 @@ const fetchSummary = async (req, res) => {
     }
 }
 
+const fetchFeatured = async (req, res) => {
+    try {
+        const featuredPromises = featuredIds.map (id => fetchPosition ({ params: { positionId: id } }));
+        let featured = await Promise.all (featuredPromises);
+        featured = featured.filter (item => item);
+        res.status (200).json ({
+            featured
+        });
+    } catch (err) {
+        console.log (err);
+        res.json ({
+            error: err.toString ()
+        });
+    }
+}
+
 const fetchPositions = async (req, res) => {
     const { type, ownerAddress, collectionId } = req.params;
     const startFrom = Number (req.query.startFrom) || 0;
@@ -470,6 +495,7 @@ const fetchWithdrawable = async (req, res) => {
 module.exports = {
     router: () => {
         const router = Router ();
+        router.get ('/featured', fetchFeatured);
         router.get ('/summary', fetchSummary);
         router.get ('/all/:type', fetchPositions);
         router.get ('/by-owner/:ownerAddress/:type', fetchPositions);

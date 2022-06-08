@@ -9,6 +9,7 @@ const getCollectionsRoutes = require ('./get/collections').router;
 // const getCollectibleRoutes = require ('./get/collectible');
 const getUserRoutes = require ('./get/user').router;
 const getEditUserRoutes = require ('./edit/user');
+const getUpdateFeaturedRoutes = require ('./edit/featured');
 // const getVerifyJWTRoutes = require ('./verifyjwt');
 // const getEditEVMAddressRoutes = require ('./edit/evmAddress');
 // const getSyncCollectiblesRoutes = require ('./sync/collectibles');
@@ -35,13 +36,7 @@ module.exports = () => {
     router.use ('/get/marketplace', getMarketplaceRoutes ());
     router.use ('/get/user', getUserRoutes ());
     router.use ('/edit/user', getEditUserRoutes ());
-    
-    // router.use ('/sync/collectibles', getSyncCollectiblesRoutes ());
-    // router.use ('/get/collectibles', getCollectiblesRoutes ());
-    // router.use ('/get/collectible', getCollectibleRoutes ());
-    // router.use ('/get/r/marketplace', getMarketplaceOldRoutes ());
-    // router.use ('/edit/evmaddress', getEditEVMAddressRoutes ());
-    // router.use ('/verifyjwt', getVerifyJWTRoutes ());
+    router.use ('/edit/featured', getUpdateFeaturedRoutes ());
 
     router.get ('/', (req, res) => {
         res.send ('Sqwid API');
