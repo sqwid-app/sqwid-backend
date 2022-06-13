@@ -41,7 +41,6 @@ firebase.collection ('config').doc ('collectibles').onSnapshot (snapshot => {
     if (!snapshot.exists) return;
     let data = snapshot.data ();
     featuredIds = data.featured;
-    console.log (featuredIds);
 });
 
 const sliceIntoChunks = (arr, chunkSize) => {
