@@ -2,7 +2,8 @@ const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
 const ethers = require ('ethers');
-// const multer = require ('multer');
+const multer = require ('multer');
+const sharp = require ('sharp');
 // const { NFTStorage, File } = require ('nft.storage');
 const getNetwork = require('../../lib/getNetwork');
 // const { FieldValue } = require ('firebase-admin').firestore;
@@ -21,6 +22,14 @@ const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 // const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+
+const ipfsClient = require ('ipfs-http-client');
+// 
+// import { create as ipfsClient } from 'ipfs-http-client';
+
+const infuraAuth =
+    'Basic ' + Buffer.from(process.env.INFURA_IPFS_PROJECT_ID + ':' + process.env.INFURA_IPFS_PROJECT_SECRET).toString('base64');
+
 /*
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
@@ -174,11 +183,116 @@ const verifyItem = async (req, res, next) => {
     }
 }
 
+const uploadToIPFS = async file => {
+    const ipfs = ipfsClient.create ({
+        host: "ipfs.infura.io",
+        port: 5001,
+        protocol: "https",
+        headers: {
+            authorization: infuraAuth,
+        }
+    });
+    const buffer = file.arrayBuffer ? await file.arrayBuffer() : file;
+    const addedFile = await ipfs.add(buffer);
+    await ipfs.pin.add (addedFile.path);
+    return addedFile.path;
+}
+
+const generateThumbnail = async file => {
+    const data = await sharp (file)
+        .resize ({
+            width: 512,
+            height: 512,
+            fit: sharp.fit.inside,
+            withoutEnlargement: true
+        })
+        .webp ()
+        .toBuffer ();
+    return data;
+}
+
+const generateSmallSize = async file => {
+    const data = await sharp (file)
+        .resize ({
+            width: 1280,
+            height: 1280,
+            fit: sharp.fit.inside,
+            withoutEnlargement: true
+        })
+        .webp ()
+        .toBuffer ();
+    return data;
+}
+
+const mediaUpload = multer ({
+    storage: multer.memoryStorage (),
+    limits: {
+        fileSize: 30000000
+    },
+});
+
+let upload = async (req, res, next) => {
+    res.setHeader ('Access-Control-Allow-Origin', '*');
+    const cover = req.files.coverData ? req.files.coverData [0] : req.files.fileData [0];
+    const file = (req.files.coverData && (req.files.coverData [0] === req.files.fileData [0])) ? null : req.files.fileData [0];
+
+    let collectionId = req.body.collection || "ASwOXeRM5DfghnURP4g2";
+
+    const creatorPromise = getEVMAddress (req.user.address);
+    const collectionDocPromise = getDbCollections ([collectionId]);
+
+    const [creator, collectionDoc] = await Promise.all ([creatorPromise, collectionDocPromise]);
+
+    if (collectionDoc.length) {
+        if (collectionDoc [0].data.owner === creator || collectionId === "ASwOXeRM5DfghnURP4g2") {
+            try {
+
+                const thumbnailPromise = generateThumbnail (cover.buffer);
+                const smallSizePromise = generateSmallSize (cover.buffer);
+
+                const [thumbnail, small] = await Promise.all ([thumbnailPromise, smallSizePromise]);
+
+                let uploadsArray = [uploadToIPFS (thumbnail), uploadToIPFS (small), uploadToIPFS (cover.buffer)];
+                if (req.files.coverData) uploadsArray.push (uploadToIPFS (file.buffer));
+
+                const uploads = await Promise.all (uploadsArray);
+
+                const metadata = {
+                    name: req.body.name || 'Empty Sqwid',
+                    description: req.body.description || "",
+                    image: `ipfs://${uploads [1]}`,
+                    media: `ipfs://${uploads [3] || uploads [2]}`,
+                    thumbnail: `ipfs://${uploads [0]}`,
+                    attributes: JSON.parse (req.body.properties),
+                    mimetype: file.mimetype
+                }
+
+                const meta = await uploadToIPFS (JSON.stringify (metadata));
+
+                res.status (200).json ({
+                    metadata: 'ipfs://' + meta
+                });
+            } catch (err) {
+                next (err);
+            }
+        } else {
+            return res.status (403).json ({
+                error: 'You are not the owner of this collection.'
+            });
+        }
+    } else {
+        return res.status (404).json ({
+            error: 'Collection not found.'
+        });
+    }
+}
+
 module.exports = () => {
     const router = Router ();
     router.use (cors ());
 
     router.post ('/verify', verify, verifyItem);
+    router.post ('/upload', verify, mediaUpload.fields ([{ name: 'coverData', maxCount: 1 }, { name: 'fileData', maxCount: 1 }]), upload);
 
     return router;
 }
