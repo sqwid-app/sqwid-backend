@@ -14,7 +14,7 @@ const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const cors = require ('cors');
 const { getWallet } = require('../../lib/getWallet');
-const { getCloudflareURL } = require('../../lib/getIPFSURL');
+const { getCloudflareURL, getInfuraURL } = require('../../lib/getIPFSURL');
 const axios = require ('axios');
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 
@@ -136,9 +136,11 @@ const verifyItem = async (req, res, next) => {
                 let meta = {};
                 try {
                     ipfsURI = await tokenContract.uri (item.tokenId);
-                    const response = await axios (getCloudflareURL (ipfsURI));
+                    const response = await axios (getInfuraURL (ipfsURI));
                     meta = response.data;
-                } catch (err) {}
+                } catch (err) {
+                    console.log (err);
+                }
 
                 if (!meta.name) return res.status (400).json ({
                     error: 'Blockchain item not found'
