@@ -246,16 +246,24 @@ let upload = async (req, res, next) => {
     if (collectionDoc.length) {
         if (collectionDoc [0].data.owner === creator || collectionId === "ASwOXeRM5DfghnURP4g2") {
             try {
+                let uploadsArray = [];
 
-                const thumbnailPromise = generateThumbnail (cover.buffer);
-                const smallSizePromise = generateSmallSize (cover.buffer);
+                if (cover.mimetype.startsWith ('video')) uploadsArray = [uploadToIPFS (cover.buffer)]
+                else {
+                    const thumbnailPromise = generateThumbnail (cover.buffer);
+                    const smallSizePromise = generateSmallSize (cover.buffer);
+    
+                    const [thumbnail, small] = await Promise.all ([thumbnailPromise, smallSizePromise]);
+    
+                    uploadsArray = [uploadToIPFS (thumbnail), uploadToIPFS (small), uploadToIPFS (cover.buffer)];
+                    if (req.files.coverData) uploadsArray.push (uploadToIPFS (file.buffer));
+                }
 
-                const [thumbnail, small] = await Promise.all ([thumbnailPromise, smallSizePromise]);
+                let uploads = await Promise.all (uploadsArray);
 
-                let uploadsArray = [uploadToIPFS (thumbnail), uploadToIPFS (small), uploadToIPFS (cover.buffer)];
-                if (req.files.coverData) uploadsArray.push (uploadToIPFS (file.buffer));
-
-                const uploads = await Promise.all (uploadsArray);
+                for (let i = 1; i < 3; i++) {
+                    if (!uploads [i]) uploads [i] = uploads [i - 1];
+                }
 
                 const metadata = {
                     name: req.body.name || 'Empty Sqwid',
