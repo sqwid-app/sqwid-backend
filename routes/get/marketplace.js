@@ -123,7 +123,8 @@ const fetchCollection = async (req, res) => {
             name: user.name,
             thumb: `https://avatars.dicebear.com/api/identicon/${user.address}.svg`
         },
-        thumb: collection.image
+        thumb: collection.image,
+        description: collection.description
     }
 
     res?.json (collectionResponse);

@@ -1,5 +1,38 @@
 const { Router } = require ('express');
+const ethers = require ('ethers');
 const firebase = require ('../../lib/firebase');
+const { getWallet } = require('../../lib/getWallet');
+const getNetwork = require('../../lib/getNetwork');
+const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
+const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
+const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
+let allowedItems = [];
+let collections = [];
+let provider;
+let collectibleContract;
+let marketplaceContract;
+let utilityContract;
+firebase.collection ('blacklists').doc ('collectibles').get ().then (allowed => {
+    allowedItems = allowed.data ().allowed;
+    allowedItems.forEach ((item, i) => {
+        if (collections.indexOf (item.collection) === -1) {
+            collections.push (item.collection);
+        }
+        allowedItems [i].collection = collections.indexOf (item.collection);
+    })
+});
+
+const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+
+getWallet ().then (async wallet => {
+    provider = wallet.provider;
+    collectibleContract = CollectibleContract (provider);
+    marketplaceContract = MarketplaceContract (provider);
+    utilityContract = UtilityContract (provider);
+    console.log ('Statswatch Wallet loaded.');
+});
 
 const sliceIntoChunks = (arr, chunkSize) => {
     const res = [];
@@ -22,6 +55,19 @@ const grabCollectibleLastSale = async id => {
     return sales;
 }
 
+const grabCollectibleOwners = async id => {
+    try {
+        const itemData = await utilityContract.fetchItem (id);
+        const { tokenId } = itemData;
+        const owners = await collectibleContract.getOwners (tokenId);
+        return owners;
+        
+    } catch (e) {
+        console.log (e);
+        return [];
+    }
+}
+
 const grabUserBuys = async (address, start, end) => {
     let startDate = new Date (start || '1970-01-01');
     let endDate = new Date (end || new Date ());
@@ -40,9 +86,7 @@ const grabCollectionSales = async (id, start, end) => {
     let startDate = new Date (start || '1970-01-01');
     let endDate = new Date (end || new Date ());
     const salesRef = firebase.collection ('sales');
-    const allowed = await firebase.collection ('blacklists').doc ('collectibles').get ();
-    const allowedItems = allowed.data ().allowed;
-    const itemIds = allowedItems.filter (item => item.collection === id).map (item => item.id);
+    const itemIds = allowedItems.filter (item => collections [item.collection] === id).map (item => item.id);
 
     const chunks = sliceIntoChunks (itemIds, 10);
     const promiseArray = chunks.map (chunk => salesRef.where ('itemId', 'in', chunk).where ('timestamp', '>=', startDate).where ('timestamp', '<=', endDate).get ());
@@ -53,11 +97,21 @@ const grabCollectionSales = async (id, start, end) => {
     return flattenedSales;
 }
 
+const grabCollectionOwners = async id => {
+    const itemIds = allowedItems.filter (item => collections [item.collection] === id).map (item => item.id);
+    
+    const promises = itemIds.map (id => grabCollectibleOwners (id));
+    const owners = await Promise.all (promises);
+    const flattenedOwners = owners.reduce ((acc, curr) => {
+        return acc.concat (curr);
+    }
+    , []);
+    return Array.from (new Set (flattenedOwners));
+}
+
 const grabLastCollectionSale = async id => {
     const salesRef = firebase.collection ('sales');
-    const allowed = await firebase.collection ('blacklists').doc ('collectibles').get ();
-    const allowedItems = allowed.data ().allowed;
-    const itemIds = allowedItems.filter (item => item.collection === id).map (item => item.id);
+    const itemIds = allowedItems.filter (item => collections [item.collection] === id).map (item => item.id);
 
     const chunks = sliceIntoChunks (itemIds, 10);
     const promiseArray = chunks.map (chunk => salesRef.where ('itemId', 'in', chunk).orderBy ('timestamp', 'desc').limit (1).get ());
@@ -69,9 +123,7 @@ const grabLastCollectionSale = async id => {
 }
 
 const grabCollectionIds = async id => {
-    const allowed = await firebase.collection ('blacklists').doc ('collectibles').get ();
-    const allowedItems = allowed.data ().allowed;
-    const itemIds = allowedItems.filter (item => item.collection === id).map (item => item.id);
+    const itemIds = allowedItems.filter (item => collections [item.collection] === id).map (item => item.id);
     return itemIds;
 }
 
@@ -120,28 +172,42 @@ const getCollectibleLastSale = async (req, res) => {
     });
 }
 
-const getCollectionVolume = async (req, res) => {
-    const { id, start, end } = req.params;
-    const sales = await grabCollectionSales (id, start, end);
-    const volume = computeCollectionVolumeFromSales (sales);
+const getCollectibleOwners = async (req, res) => {
+    const { id } = req.params;
+
+    const owners = await grabCollectibleOwners (id);
 
     return res.json ({
-        volume
+        owners
     });
 }
 
+const getCollectionVolume = async (req, res) => {
+    const { id, start, end, sales } = req.params;
+    const s = sales ? sales : await grabCollectionSales (id, start, end);
+    const volume = computeCollectionVolumeFromSales (s);
+
+    res?.json ({
+        volume
+    });
+
+    return volume;
+}
+
 const getCollectionAverage = async (req, res) => {
-    const { id, start, end } = req.params;
-    const sales = await grabCollectionSales (id, start, end);
-    const salesAmount = sales.reduce ((acc, curr) => {
+    const { id, start, end, sales } = req.params;
+    const s = sales ? sales : await grabCollectionSales (id, start, end);
+    const salesAmount = s.reduce ((acc, curr) => {
         return acc + curr.docs.length;
     }, 0);
-    const volume = computeCollectionVolumeFromSales (sales);
+    const volume = computeCollectionVolumeFromSales (s);
     const average = volume / salesAmount;
 
-    return res.json ({
+    res?.json ({
         average
     });
+
+    return average;
 }
 
 const getCollectionLastSale = async (req, res) => {
@@ -162,9 +228,57 @@ const getCollectionLastSale = async (req, res) => {
         }
     });
 
-    return res.json ({
+    res?.json ({
         newestPrice
     });
+
+    return newestPrice;
+}
+
+const getCollectionNumberOfSales = async (req, res) => {
+    const { id, start, end, sales } = req.params;
+    const s = sales ? sales : await grabCollectionSales (id, start, end);
+    const salesAmount = s.reduce ((acc, curr) => {
+        return acc + curr.docs.length;
+    }, 0);
+
+    res?.json ({
+        salesAmount
+    });
+
+    return salesAmount;
+}
+
+const getCollectionAllStats = async (req, res) => {
+    const sales = await grabCollectionSales (req.params.id, req.params.start, req.params.end);
+
+    const itemIds = allowedItems.filter (item => collections [item.collection] === req.params.id);
+
+    const [volume, average, salesAmount, owners] = await Promise.all ([
+        getCollectionVolume ({ params: { ...req.params, sales } }, null),
+        getCollectionAverage ({ params: { ...req.params, sales } }, null),
+        // getCollectionLastSale ({ params: { ...req.params, sales } }, null),
+        getCollectionNumberOfSales ({ params: { ...req.params, sales } }, null),
+        grabCollectionOwners (req.params.id)
+    ]);
+
+    grabCollectibleOwners (101);
+
+    res?.json ({
+        volume,
+        average,
+        salesAmount,
+        owners: owners.length,
+        items: itemIds.length
+    });
+
+    return {
+        volume,
+        average,
+        salesAmount,
+        owners: owners.length,
+        items: itemIds.length
+    };
 }
 
 const getUserBuyVolume = async (req, res) => {
@@ -203,6 +317,8 @@ module.exports = () => {
     router.get ('/collection/:id/average', getCollectionAverage);
     router.get ('/collection/:id/average/:start/:end', getCollectionAverage);
     router.get ('/collection/:id/last-sale', getCollectionLastSale);
+    router.get ('/collection/:id/number-of-sales', getCollectionNumberOfSales);
+    router.get ('/collection/:id/all', getCollectionAllStats);
 
     // User routes
     router.get ('/user/:address/buy-volume', getUserBuyVolume);
