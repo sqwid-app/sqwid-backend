@@ -145,9 +145,10 @@ const getCollectibleVolume = async (req, res) => {
     const sales = await grabCollectibleSales (id, start, end);
     const volume = computeVolumeFromSales (sales);
 
-    return res.json ({
+    res?.json ({
         volume
     });
+    return volume;
 }
 
 const getCollectibleAverage = async (req, res) => {
@@ -156,20 +157,23 @@ const getCollectibleAverage = async (req, res) => {
     const volume = computeVolumeFromSales (sales);
     const average = volume / sales.docs.length;
 
-    return res.json ({
-        average
+    res?.json ({
+        average: average || 0
     });
+
+    return average || 0;
 }
 
 const getCollectibleLastSale = async (req, res) => {
     const { id } = req.params;
     const sales = await grabCollectibleLastSale (id);
 
-    const price = sales.docs.at (0).data ().price;
+    const price = sales.docs.at (0)?.data ()?.price;
 
-    return res.json ({
-        price
+    res?.json ({
+        price: price || 0
     });
+    return price || 0;
 }
 
 const getCollectibleOwners = async (req, res) => {
@@ -177,9 +181,39 @@ const getCollectibleOwners = async (req, res) => {
 
     const owners = await grabCollectibleOwners (id);
 
-    return res.json ({
+    res?.json ({
         owners
     });
+
+    return owners;
+}
+
+const getCollectibleAllStats = async (req, res) => {
+    const sales = (await grabCollectibleSales (req.params.id, req.params.start, req.params.end)).docs;
+
+    const [volume, average, salesAmount, lastSale, owners] = await Promise.all ([
+        getCollectibleVolume ({ params: { ...req.params, sales } }, null),
+        getCollectibleAverage ({ params: { ...req.params, sales } }, null),
+        getCollectibleNumberOfSales ({ params: { ...req.params, sales } }, null),
+        getCollectibleLastSale ({ params: { ...req.params, sales } }, null),
+        grabCollectibleOwners (req.params.id)
+    ]);
+
+    res?.json ({
+        volume: Number (volume.toFixed (2)),
+        average: Number (average.toFixed (2)),
+        salesAmount,
+        lastSale: Number (lastSale.toFixed (2)),
+        owners: owners.length
+    });
+
+    return {
+        volume: Number (volume.toFixed (2)),
+        average: Number (average.toFixed (2)),
+        salesAmount,
+        lastSale: Number (lastSale.toFixed (2)),
+        owners: owners.length
+    };
 }
 
 const getCollectionVolume = async (req, res) => {
@@ -249,6 +283,18 @@ const getCollectionNumberOfSales = async (req, res) => {
     return salesAmount;
 }
 
+const getCollectibleNumberOfSales = async (req, res) => {
+    const { id, start, end, sales } = req.params;
+    const s = sales ? sales : (await grabCollectibleSales (id, start, end)).docs;
+    const salesAmount = s.length;
+
+    res?.json ({
+        salesAmount
+    });
+
+    return salesAmount;
+}
+
 const getCollectionAllStats = async (req, res) => {
     const sales = await grabCollectionSales (req.params.id, req.params.start, req.params.end);
 
@@ -261,19 +307,17 @@ const getCollectionAllStats = async (req, res) => {
         grabCollectionOwners (req.params.id)
     ]);
 
-    grabCollectibleOwners (101);
-
     res?.json ({
-        volume,
-        average,
+        volume: Number (volume.toFixed (2)),
+        average: Number (average.toFixed (2)),
         salesAmount,
         owners: owners.length,
         items: itemIds.length
     });
 
     return {
-        volume,
-        average,
+        volume: Number (volume.toFixed (2)),
+        average: Number (average.toFixed (2)),
         salesAmount,
         owners: owners.length,
         items: itemIds.length
@@ -309,6 +353,8 @@ module.exports = () => {
     router.get ('/collectible/:id/average', getCollectibleAverage);
     router.get ('/collectible/:id/average/:start/:end', getCollectibleAverage);
     router.get ('/collectible/:id/last-sale', getCollectibleLastSale);
+    router.get ('/collectible/:id/owners', getCollectibleOwners);
+    router.get ('/collectible/:id/all', getCollectibleAllStats);
 
     // Collection routes
     router.get ('/collection/:id/volume', getCollectionVolume);
