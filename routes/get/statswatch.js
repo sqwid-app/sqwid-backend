@@ -204,10 +204,10 @@ const getCollectionAverage = async (req, res) => {
     const average = volume / salesAmount;
 
     res?.json ({
-        average
+        average: average || 0
     });
 
-    return average;
+    return average || 0;
 }
 
 const getCollectionLastSale = async (req, res) => {
@@ -257,7 +257,6 @@ const getCollectionAllStats = async (req, res) => {
     const [volume, average, salesAmount, owners] = await Promise.all ([
         getCollectionVolume ({ params: { ...req.params, sales } }, null),
         getCollectionAverage ({ params: { ...req.params, sales } }, null),
-        // getCollectionLastSale ({ params: { ...req.params, sales } }, null),
         getCollectionNumberOfSales ({ params: { ...req.params, sales } }, null),
         grabCollectionOwners (req.params.id)
     ]);
