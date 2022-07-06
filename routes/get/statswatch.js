@@ -154,14 +154,23 @@ const getCollectibleVolume = async (req, res) => {
 const getCollectibleAverage = async (req, res) => {
     const { id, start, end } = req.params;
     const sales = await grabCollectibleSales (id, start, end);
-    const volume = computeVolumeFromSales (sales);
-    const average = volume / sales.docs.length;
+
+    let average = 0;
+    const amounts = sales.docs.map (doc => doc.data ().amount).reduce ((acc, curr) => acc + curr);
+    for (let sale of sales.docs) {
+        const saleData = sale.data ();
+        const { amount, price } = saleData;
+        const weight = amount * price;
+        average += weight;
+    }
+
+    const averagePrice = average / amounts;
 
     res?.json ({
-        average: average || 0
+        average: averagePrice || 0
     });
 
-    return average || 0;
+    return averagePrice || 0;
 }
 
 const getCollectibleLastSale = async (req, res) => {
@@ -186,6 +195,22 @@ const getCollectibleOwners = async (req, res) => {
     });
 
     return owners;
+}
+
+const getCollectibleSaleHistory = async (req, res) => {
+    const { id, start, end } = req.params;
+    const sales = (await grabCollectibleSales (id, start, end)).docs.map (doc => {
+        let data = doc.data ();
+        return {
+            timestamp: data.timestamp.seconds,
+            price: data.price,
+            amount: data.amount
+        }
+    });
+    res?.json ({
+        sales
+    });
+    return sales;
 }
 
 const getCollectibleAllStats = async (req, res) => {
@@ -231,17 +256,35 @@ const getCollectionVolume = async (req, res) => {
 const getCollectionAverage = async (req, res) => {
     const { id, start, end, sales } = req.params;
     const s = sales ? sales : await grabCollectionSales (id, start, end);
-    const salesAmount = s.reduce ((acc, curr) => {
-        return acc + curr.docs.length;
-    }, 0);
-    const volume = computeCollectionVolumeFromSales (s);
-    const average = volume / salesAmount;
+    // const salesAmount = s.reduce ((acc, curr) => {
+    //     return acc + curr.docs.length;
+    // }, 0);
+    // const volume = computeCollectionVolumeFromSales (s);
+    // const average = volume / salesAmount;
+
+    // flatten documents
+    const flattenedSales = s.reduce ((acc, curr) => {
+        return acc.concat (curr.docs);
+    }, []);
+
+
+    let average = 0;
+    console.log (flattenedSales);
+    const amounts = flattenedSales.map (doc => doc.data ().amount).reduce ((acc, curr) => acc + curr);
+    console.log (amounts);
+    for (let sale of flattenedSales) {
+        const { amount, price } = sale.data ();
+        const weight = amount * price;
+        average += weight;
+    }
+
+    const averagePrice = average / amounts;
 
     res?.json ({
-        average: average || 0
+        average: averagePrice || 0
     });
 
-    return average || 0;
+    return averagePrice || 0;
 }
 
 const getCollectionLastSale = async (req, res) => {
@@ -353,6 +396,8 @@ module.exports = () => {
     router.get ('/collectible/:id/average', getCollectibleAverage);
     router.get ('/collectible/:id/average/:start/:end', getCollectibleAverage);
     router.get ('/collectible/:id/last-sale', getCollectibleLastSale);
+    router.get ('/collectible/:id/sale-history', getCollectibleSaleHistory);
+    router.get ('/collectible/:id/sale-history/:start/:end', getCollectibleSaleHistory);
     router.get ('/collectible/:id/owners', getCollectibleOwners);
     router.get ('/collectible/:id/all', getCollectibleAllStats);
 

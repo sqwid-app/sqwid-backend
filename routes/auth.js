@@ -21,7 +21,8 @@ let auth = (req, res) => {
                 let jwt = generateToken (address, _evmAddress);
                 doc.ref.set ({
                     nonce: generateNonce (),
-                    evmAddress: _evmAddress
+                    evmAddress: _evmAddress,
+                    created: user.created || new Date ()
                 }, { merge: true }).then (() => {
                     res.status (200).send ({
                         status: 'success',
