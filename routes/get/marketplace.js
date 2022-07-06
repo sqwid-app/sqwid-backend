@@ -13,11 +13,12 @@ const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Co
 const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-let provider, utilityContract, marketplaceContract;
+let provider, utilityContract, marketplaceContract, collectibleContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
     utilityContract = UtilityContract (provider);
     marketplaceContract = MarketplaceContract (provider);
+    collectibleContract = CollectibleContract (provider);
     console.log ('Wallet loaded.');
 });
 let collectionsOfApprovedItems = {};
@@ -137,7 +138,7 @@ const fetchPosition = async (req, res) => {
         const item = await utilityContract.fetchPosition (positionId);
 
         if (!Number (item.amount)) return res?.status (404).send ({ error: 'Position does not exist.' });
-        const collectibleContract = CollectibleContract (provider, item.item.nftContract);
+        // const collectibleContract = CollectibleContract (provider, item.item.nftContract);
         
         let collectibleData = await getDbCollectibles ([Number (item.item.itemId)]);
 
@@ -492,6 +493,39 @@ const fetchWithdrawable = async (req, res) => {
     }
 }
 
+const fetchBidsByOwner = async (req, res) => {
+    const { evmAddress } = req.user;
+    const page = Number (req.query.page) || 1;
+    const pageSize = Number (req.query.pageSize) || 10;
+    try {
+        const response = await utilityContract.fetchAddressBidsPage (evmAddress, pageSize, page, true);
+        const metas = await getDbCollectibles (response.bids.map (item => item.auction.item.itemId));
+        let bids = response.bids.map ((item, i) => {
+            return {
+                positionId: Number (item.auction.positionId),
+                amount: Number (item.auction.amount),
+                bidAmount: Number (item.bidAmount) / 10 ** 18,
+                meta: metas [i]
+            };
+        });
+
+        res.status (200).json ({
+            bids,
+            pagination: {
+                totalPages: response.totalPages.toNumber (),
+                page,
+                pageSize
+            }
+        });
+    } catch (err) {
+        console.log (err);
+        res.json ({
+            error: err.toString ()
+        });
+    }
+}
+
+
 module.exports = {
     router: () => {
         const router = Router ();
@@ -504,6 +538,7 @@ module.exports = {
         router.get ('/collection/:collectionId', fetchCollection);
         router.get ('/balance', verify, fetchBalance);
         router.get ('/withdrawable', verify, fetchWithdrawable);
+        router.get ('/bids', verify, fetchBidsByOwner);
         return router;
     },
     getDbCollections,
