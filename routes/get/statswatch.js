@@ -156,7 +156,7 @@ const getCollectibleAverage = async (req, res) => {
     const sales = await grabCollectibleSales (id, start, end);
 
     let average = 0;
-    const amounts = sales.docs.map (doc => doc.data ().amount).reduce ((acc, curr) => acc + curr);
+    const amounts = sales.docs.map (doc => doc.data ().amount).reduce ((acc, curr) => acc + curr, []);
     for (let sale of sales.docs) {
         const saleData = sale.data ();
         const { amount, price } = saleData;
@@ -269,9 +269,7 @@ const getCollectionAverage = async (req, res) => {
 
 
     let average = 0;
-    console.log (flattenedSales);
-    const amounts = flattenedSales.map (doc => doc.data ().amount).reduce ((acc, curr) => acc + curr);
-    console.log (amounts);
+    const amounts = flattenedSales.map (doc => doc.data ().amount).reduce ((acc, curr) => acc + curr, []);
     for (let sale of flattenedSales) {
         const { amount, price } = sale.data ();
         const weight = amount * price;
