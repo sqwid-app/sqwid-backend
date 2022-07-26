@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@reef-defi/evm-provider": "^1.0.4",
+    "@reef-defi/evm-provider": "^1.0.7",
     "axios": "^0.24.0",
     "cors": "^2.8.5",
     "dotenv": "^10.0.0",
