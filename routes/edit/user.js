@@ -52,11 +52,33 @@ const changeBio = async (req, res) => {
     }
 }
 
+const socials = async (req, res) => {
+    const { social } = req.params;
+    const { address } = req.user;
+    const user = await firebase.collection ('users').doc (address).get ();
+    if (user.exists) {
+        await user.ref.update ({
+            socials: {
+                ...user.data ().socials,
+                [social]: req.body[social]
+            }
+        });
+        res.status (200).json ({
+            success: true
+        });
+    } else {
+        res.status (404).json ({
+            error: 'User not found'
+        });
+    }
+}
+
 module.exports = () => {
     const router = Router ();
 
     router.post ('/displayName', verify, changeDisplayName);
     router.post ('/bio', verify, changeBio);
+    router.post ('/socials/:social', verify, socials);
     
     return router;
 }
