@@ -385,7 +385,9 @@ const fetchFeatured = async (req, res) => {
     try {
         const featuredPromises = featuredIds.map (id => fetchPosition ({ params: { positionId: id } }));
         let featured = await Promise.all (featuredPromises);
-        featured = featured.filter (item => item);
+        featured = featured.map ((item, i) => {
+            return item !== null ? item : { positionId: featuredIds [i] };
+        });
         res.status (200).json ({
             featured
         });
