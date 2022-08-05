@@ -1,6 +1,7 @@
 const { Router } = require ('express');
 const { cacheCollectibles } = require('../../lib/caching');
 const firebase = require ('../../lib/firebase');
+const { getEVMAddress } = require('../../lib/getEVMAddress');
 const { verify } = require ('../../middleware/auth');
 const { getDbCollectibles } = require('../get/marketplace');
 
@@ -24,14 +25,15 @@ const getHearts = async (req, res) => {
 const doHeart = async (req, res) => {
     const { collectible } = req.params;
     const { address } = req.user;
-    console.log ('id', '==', Number (collectible));
-    const item = await firebase.collection ('collectibles').where ('id', '==', Number (collectible)).get ();
+    const evmAddressPromise = getEVMAddress (address);
+    const itemPromise = firebase.collection ('collectibles').where ('id', '==', Number (collectible)).get ();
+    const [item, evmAddress] = await Promise.all ([itemPromise, evmAddressPromise]);
     if (!item.empty) {
         const hearts = item.docs [0].data ().hearts || [];
-        if (hearts.includes (address)) {
-            hearts.splice (hearts.indexOf (address), 1);
+        if (hearts.includes (evmAddress)) {
+            hearts.splice (hearts.indexOf (evmAddress), 1);
         } else {
-            hearts.push (address);
+            hearts.push (evmAddress);
         }
         const newData = {
             ...item.docs [0].data (),
