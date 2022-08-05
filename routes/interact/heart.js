@@ -3,7 +3,7 @@ const { cacheCollectibles } = require('../../lib/caching');
 const firebase = require ('../../lib/firebase');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
 const { verify } = require ('../../middleware/auth');
-const { getDbCollectibles } = require('../get/marketplace');
+const { getDbCollectibles, getNamesByEVMAddresses } = require('../get/marketplace');
 
 const getHearts = async (req, res) => {
     const { collectible } = req.params;
@@ -39,10 +39,14 @@ const doHeart = async (req, res) => {
             ...item.docs [0].data (),
             hearts
         }
-        await Promise.all ([item.docs [0].ref.update ({ hearts }), cacheCollectibles ([newData])]);
+        const [up, cache, names] = await Promise.all ([
+            item.docs [0].ref.update ({ hearts }),
+            cacheCollectibles ([newData]),
+            getNamesByEVMAddresses ([evmAddress])
+        ]);
         res.status (200).json ({
             success: true,
-            hearts
+            name: names [0].name || evmAddress,
         });
     } else {
         res.status (404).json ({

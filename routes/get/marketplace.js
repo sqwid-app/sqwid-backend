@@ -147,7 +147,7 @@ const fetchPosition = async (req, res) => {
         collectibleData = collectibleData [0];
 
         const collectionPromise = getDbCollections ([collectibleData.collectionId]);
-        const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner, item.auctionData.highestBidder, item.loanData.lender])));
+        const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner, item.auctionData.highestBidder, item.loanData.lender, ...(collectibleData.hearts || [])])));
         const itemMetaPromise = collectibleContract.uri (item.item.tokenId);
         const itemRoyaltiesPromise = collectibleContract.royaltyInfo (item.item.tokenId, 100);
         const [collection, names, itemMeta, itemRoyalty] = await Promise.all ([collectionPromise, namesPromise, itemMetaPromise, itemRoyaltiesPromise]);
@@ -162,7 +162,10 @@ const fetchPosition = async (req, res) => {
             positionId: Number (item.positionId),
             itemId: Number (item.item.itemId),
             tokenId: Number (item.item.tokenId),
-            hearts: collectibleData.hearts || [],
+            hearts: collectibleData.hearts?.map (usr => ({
+                name: namesObj [usr],
+                address: usr
+            })) || [],
             collection: {
                 ...collection [0].data,
                 id: collection [0].id
@@ -544,5 +547,6 @@ module.exports = {
         return router;
     },
     getDbCollections,
-    getDbCollectibles
+    getDbCollectibles,
+    getNamesByEVMAddresses
 }
