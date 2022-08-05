@@ -16,7 +16,7 @@ const getUpdateFeaturedRoutes = require ('./edit/featured');
 const getMarketplaceRoutes = require ('./get/marketplace').router;
 const getStatswatchRoutes = require ('./get/statswatch');
 // const getMarketplaceOldRoutes = require ('./get/r/marketplace_old').router;
-
+const getHeartsRoutes = require ('./interact/heart').router;
 const rateLimit = require ('express-rate-limit');
 
 const createLimiter = rateLimit ({
@@ -39,6 +39,7 @@ module.exports = () => {
     router.use ('/edit/user', getEditUserRoutes ());
     router.use ('/edit/featured', getUpdateFeaturedRoutes ());
     router.use ('/statswatch', getStatswatchRoutes ());
+    router.use ('/heart', getHeartsRoutes ());
 
     router.get ('/', (req, res) => {
         res.send ('Sqwid API');

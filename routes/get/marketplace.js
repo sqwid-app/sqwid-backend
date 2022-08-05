@@ -150,7 +150,6 @@ const fetchPosition = async (req, res) => {
         const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner, item.auctionData.highestBidder, item.loanData.lender])));
         const itemMetaPromise = collectibleContract.uri (item.item.tokenId);
         const itemRoyaltiesPromise = collectibleContract.royaltyInfo (item.item.tokenId, 100);
-        
         const [collection, names, itemMeta, itemRoyalty] = await Promise.all ([collectionPromise, namesPromise, itemMetaPromise, itemRoyaltiesPromise]);
 
         let namesObj = {};
@@ -163,6 +162,7 @@ const fetchPosition = async (req, res) => {
             positionId: Number (item.positionId),
             itemId: Number (item.item.itemId),
             tokenId: Number (item.item.tokenId),
+            hearts: collectibleData.hearts || [],
             collection: {
                 ...collection [0].data,
                 id: collection [0].id
