@@ -26,6 +26,13 @@ const createLimiter = rateLimit ({
 	legacyHeaders: false,
 });
 
+const editLimiter = rateLimit ({
+    windowMs: 5 * 60 * 1000, // 5 minute
+    max: 20, // limit each IP to 20 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 module.exports = () => {
     const router = Router ();
 
@@ -36,8 +43,8 @@ module.exports = () => {
     router.use ('/get/collections', getCollectionsRoutes ());
     router.use ('/get/marketplace', getMarketplaceRoutes ());
     router.use ('/get/user', getUserRoutes ());
-    router.use ('/edit/user', getEditUserRoutes ());
-    router.use ('/edit/featured', getUpdateFeaturedRoutes ());
+    router.use ('/edit/user', editLimiter, getEditUserRoutes ());
+    router.use ('/edit/featured', editLimiter, getUpdateFeaturedRoutes ());
     router.use ('/statswatch', getStatswatchRoutes ());
     router.use ('/heart', getHeartsRoutes ());
 

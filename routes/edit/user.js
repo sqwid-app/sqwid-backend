@@ -1,6 +1,7 @@
 const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
+const { sanitize, checkAllowed, checkSize } = require('../../middleware/socials');
 
 const getUser = async (req, res) => {
     const { address } = req.query;
@@ -55,6 +56,12 @@ const changeBio = async (req, res) => {
 const socials = async (req, res) => {
     const { social } = req.params;
     const { address } = req.user;
+    if (!req.body [social] && req.body [social] !== '') {
+        res.status (400).json ({
+            error: 'Missing social'
+        });
+        return;
+    }
     const user = await firebase.collection ('users').doc (address).get ();
     if (user.exists) {
         await user.ref.update ({
@@ -76,9 +83,9 @@ const socials = async (req, res) => {
 module.exports = () => {
     const router = Router ();
 
-    router.post ('/displayName', verify, changeDisplayName);
-    router.post ('/bio', verify, changeBio);
-    router.post ('/socials/:social', verify, socials);
+    router.post ('/displayName', verify, sanitize, checkSize, changeDisplayName);
+    router.post ('/bio', verify, sanitize, checkSize, changeBio);
+    router.post ('/socials/:social', verify, sanitize, checkAllowed, checkSize, socials);
     
     return router;
 }
