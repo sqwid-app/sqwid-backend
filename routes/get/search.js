@@ -14,7 +14,6 @@ const searchUsers = async (req, res) => {
         page,
         per_page: perPage
     });
-
     res.json (user.hits.map (hit => hit.document));
 }
 
@@ -50,7 +49,6 @@ const searchAll = async (req, res) => {
         users: result.results[0].hits.map (hit => hit.document),
         collections: result.results[1].hits.map (hit => hit.document)
     }
-    console.log (result);
     res.json (result);
 }
 
