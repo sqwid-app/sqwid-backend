@@ -548,5 +548,5 @@ module.exports = {
     },
     getDbCollections,
     getDbCollectibles,
-    getNamesByEVMAddresses
+    getNamesByEVMAddresses,
 }

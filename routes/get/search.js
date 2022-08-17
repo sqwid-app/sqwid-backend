@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const getNetwork = require('../../lib/getNetwork');
 const typesense = require ('../../lib/typesense');
+const { getDbCollections } = require('./marketplace');
 const net = getNetwork ();
 
 const searchUsers = async (req, res) => {
@@ -14,17 +15,31 @@ const searchUsers = async (req, res) => {
         page,
         per_page: perPage
     });
-    res.json (user.hits.map (hit => hit.document));
+    res.json ({
+        total: user.found,
+        users: user.hits.map (hit => hit.document)
+    });
 }
 
 const searchCollections = async (req, res) => {
     const { identifier } = req.params;
-    let user = await typesense.collections (net.typesense.collections ['collections']).documents ().search ({
+    let collections = await typesense.collections (net.typesense.collections ['collections']).documents ().search ({
         q: identifier,
         query_by: 'name',
     });
+    const collectionDataPromises = collections.hits.map (hit => hit.document).map (collection => getDbCollections ([collection.id]));
+    const collectionData = await Promise.all (collectionDataPromises);
+    const data = collections.hits.map (hit => hit.document).map ((collection, index) => {
+        return {
+            ...collection,
+            ...(collectionData [index] [0].data)
+        }
+    });
 
-    res.json (user.hits.map (hit => hit.document));
+    res.json ({
+        total: collections.found,
+        collections: data
+    });
 }
 
 const searchAll = async (req, res) => {
@@ -56,8 +71,8 @@ module.exports = {
     router: () => {
         const router = Router ();
 
-        router.get ('/user/:identifier', searchUsers);
-        router.get ('/collection/:identifier', searchCollections);
+        router.get ('/users/:identifier', searchUsers);
+        router.get ('/collections/:identifier', searchCollections);
         router.get ('/all/:identifier', searchAll);
         
         return router;
