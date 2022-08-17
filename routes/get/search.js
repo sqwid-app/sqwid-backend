@@ -23,9 +23,13 @@ const searchUsers = async (req, res) => {
 
 const searchCollections = async (req, res) => {
     const { identifier } = req.params;
+    const page = req.query.page || 1;
+    const perPage = req.query.perPage || 10;
     let collections = await typesense.collections (net.typesense.collections ['collections']).documents ().search ({
         q: identifier,
         query_by: 'name',
+        page,
+        per_page: perPage
     });
     const collectionDataPromises = collections.hits.map (hit => hit.document).map (collection => getDbCollections ([collection.id]));
     const collectionData = await Promise.all (collectionDataPromises);
