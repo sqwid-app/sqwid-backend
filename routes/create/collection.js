@@ -103,7 +103,8 @@ const createCollection = async (req, res, next) => {
         description: req.body.description || '',
         owner: ownerEVMAddress,
         created: new Date ().getTime (),
-        image: ''
+        image: '',
+        traits: {}
     }
 
     try {

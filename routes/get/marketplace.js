@@ -280,6 +280,7 @@ const buildObjectsFromItems = async (items) => {
     }, {});
 
     const collectionsObject = collections.reduce ((acc, collection) => {
+        delete collection.data.traits;
         return { ...acc, [collection.id]: { ...collection.data, id: collection.id } };
     }, {});
     let namesObj;
@@ -294,9 +295,29 @@ const buildObjectsFromItems = async (items) => {
     }
 }
 
-const constructAllowedBytes = (collectionId = null) => {
+const grabItemsWithTraits = async (traits, collectionId) => {
+    let baseQ = firebase.collection ('collectibles').where ('collectionId', '==', collectionId);
+    const queries = Object.keys (traits).map (trait => {
+        if (typeof traits [trait] === "object" && traits [trait].length) {
+            return baseQ.where (`trait:${trait.toUpperCase ()}`, 'in', traits [trait].map (t => t.toUpperCase ())).get ();
+        } else {
+            return baseQ.where (`trait:${trait.toUpperCase ()}`, '==', traits [trait].toUpperCase ()).get ();
+        }
+    });
+    const allQueries = await Promise.all (queries);
+    const ids = new Set ();
+    allQueries.forEach (q => {
+        q.forEach (snapshot => {
+            ids.add (snapshot.data ().id)
+        });
+    });
+    return Array.from (ids).sort ((a, b) => a - b);
+}
+
+const constructAllowedBytes = (collectionId = null, ids = []) => {
     let allowedBytes = [];
-    if (collectionId) {
+    if (ids.length) allowedBytes = getBoolsArray (ids);
+    else if (collectionId) {
         let idsInCollection = [];
         for (let i = 0; i < approvedIds.length; i++) {
             if (collectionsOfApprovedItems [approvedIds [i].collection] === collectionId) {
@@ -406,8 +427,13 @@ const fetchPositions = async (req, res) => {
     const { type, ownerAddress, collectionId } = req.params;
     const startFrom = Number (req.query.startFrom) || 0;
     const limit = Math.min (Number (req.query.limit), 100) || 10;
+    const { traits } = req.query;
+    let specificIds = [];
     try {
-        let allowedBytes = constructAllowedBytes (collectionId);
+        if (traits && Object.keys (traits).length) {
+            specificIds = await grabItemsWithTraits (traits, collectionId);
+        }
+        let allowedBytes = constructAllowedBytes (collectionId, specificIds);
         if (!allowedBytes.length) return res.status (200).json ({
             items: [],
             pagination: {

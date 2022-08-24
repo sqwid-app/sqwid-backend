@@ -24,6 +24,7 @@ const collectibleContract = (signerOrProvider, address = null) => new ethers.Con
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 
 const ipfsClient = require ('ipfs-http-client');
+const { syncTraitsToCollection } = require('../../lib/synctraits');
 // 
 // import { create as ipfsClient } from 'ipfs-http-client';
 
@@ -155,15 +156,25 @@ const verifyItem = async (req, res, next) => {
                     error: 'Blockchain item not found'
                 });
 
-                await firebase.collection ('collectibles').add ({
-                    id,
-                    uri: ipfsURI,
-                    collectionId,
-                    createdAt: new Date (),
-                    creator,
-                    meta,
-                    approved: null
-                });
+                const attributes = meta?.attributes || [];
+                const traits = {};
+                if (collectionId !== 'ASwOXeRM5DfghnURP4g2') {
+                    attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
+                }
+
+                await Promise.all ([
+                    firebase.collection ('collectibles').add ({
+                        id,
+                        uri: ipfsURI,
+                        collectionId,
+                        createdAt: new Date (),
+                        creator,
+                        meta,
+                        approved: null,
+                        ...traits
+                    }),
+                    syncTraitsToCollection (collectionId, traits)
+                ]);
 
                 res.status (200).json ({
                     message: 'Item verified.'
