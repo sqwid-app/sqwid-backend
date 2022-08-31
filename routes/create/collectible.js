@@ -22,14 +22,11 @@ const collectibleContract = (signerOrProvider, address = null) => new ethers.Con
 // const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 
-const ipfsClient = require ('ipfs-http-client');
 const { syncTraitsToCollection } = require('../../lib/synctraits');
 const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
+const { initIpfs } = require('../../lib/IPFS');
 // 
 // import { create as ipfsClient } from 'ipfs-http-client';
-
-const infuraAuth =
-    'Basic ' + Buffer.from(process.env.INFURA_IPFS_PROJECT_ID + ':' + process.env.INFURA_IPFS_PROJECT_SECRET).toString('base64');
 
 /*
 const mediaUpload = multer ({
@@ -195,14 +192,7 @@ const verifyItem = async (req, res, next) => {
 }
 
 const uploadToIPFS = async file => {
-    const ipfs = ipfsClient.create ({
-        host: "ipfs.infura.io",
-        port: 5001,
-        protocol: "https",
-        headers: {
-            authorization: infuraAuth,
-        }
-    });
+    const ipfs = initIpfs();
     const buffer = file.arrayBuffer ? await file.arrayBuffer() : file;
     const addedFile = await ipfs.add(buffer);
     await ipfs.pin.add (addedFile.path);

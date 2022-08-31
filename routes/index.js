@@ -35,13 +35,20 @@ const editLimiter = rateLimit ({
     legacyHeaders: false,
 });
 
+const createBulkLimiter = rateLimit ({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 22, // limit each IP to 22 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 module.exports = () => {
     const router = Router ();
 
     router.use ('/auth', createLimiter, getAuthRoutes ());
     router.use ('/nonce', createLimiter, getNonceRoutes ());
     router.use ('/create/collectible', createLimiter, getCreateCollectibleRoutes ());
-    router.use ('/create/bulk', createLimiter, getCreateBulkRoutes ());
+    router.use ('/create/bulk', createBulkLimiter, getCreateBulkRoutes ());
     router.use ('/create/collection', createLimiter, getCreateCollectionRoutes ());
     router.use ('/get/collections', getCollectionsRoutes ());
     router.use ('/get/marketplace', getMarketplaceRoutes ());
