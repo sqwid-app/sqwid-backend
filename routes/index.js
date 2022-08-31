@@ -3,6 +3,7 @@ const { Router } = require ('express');
 const getAuthRoutes = require ('./auth');
 const getNonceRoutes = require ('./nonce');
 const getCreateCollectibleRoutes = require ('./create/collectible');
+const getCreateBulkRoutes = require ('./create/bulk');
 const getCreateCollectionRoutes = require ('./create/collection');
 const getCollectionsRoutes = require ('./get/collections').router;
 // const getCollectiblesRoutes = require ('./get/collectibles');
@@ -40,6 +41,7 @@ module.exports = () => {
     router.use ('/auth', createLimiter, getAuthRoutes ());
     router.use ('/nonce', createLimiter, getNonceRoutes ());
     router.use ('/create/collectible', createLimiter, getCreateCollectibleRoutes ());
+    router.use ('/create/bulk', createLimiter, getCreateBulkRoutes ());
     router.use ('/create/collection', createLimiter, getCreateCollectionRoutes ());
     router.use ('/get/collections', getCollectionsRoutes ());
     router.use ('/get/marketplace', getMarketplaceRoutes ());

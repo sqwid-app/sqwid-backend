@@ -3,7 +3,6 @@ const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
 const ethers = require ('ethers');
 const multer = require ('multer');
-const sharp = require ('sharp');
 // const { NFTStorage, File } = require ('nft.storage');
 const getNetwork = require('../../lib/getNetwork');
 // const { FieldValue } = require ('firebase-admin').firestore;
@@ -25,6 +24,7 @@ const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ()
 
 const ipfsClient = require ('ipfs-http-client');
 const { syncTraitsToCollection } = require('../../lib/synctraits');
+const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
 // 
 // import { create as ipfsClient } from 'ipfs-http-client';
 
@@ -207,32 +207,6 @@ const uploadToIPFS = async file => {
     const addedFile = await ipfs.add(buffer);
     await ipfs.pin.add (addedFile.path);
     return addedFile.path;
-}
-
-const generateThumbnail = async file => {
-    const data = await sharp (file)
-        .resize ({
-            width: 512,
-            height: 512,
-            fit: sharp.fit.inside,
-            withoutEnlargement: true
-        })
-        .webp ()
-        .toBuffer ();
-    return data;
-}
-
-const generateSmallSize = async file => {
-    const data = await sharp (file)
-        .resize ({
-            width: 1280,
-            height: 1280,
-            fit: sharp.fit.inside,
-            withoutEnlargement: true
-        })
-        .webp ()
-        .toBuffer ();
-    return data;
 }
 
 const mediaUpload = multer ({
