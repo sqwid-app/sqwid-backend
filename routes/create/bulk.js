@@ -9,12 +9,20 @@ const ipfsClient = require ('ipfs-http-client');
 const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
 const mime = require('mime-types');
 const { initIpfs } = require("../../lib/IPFS");
+const multer = require ('multer');
 
 const TEMP_PATH = "./temp-uploads/";
 const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "mp4"];
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "video/mp4"];
 const MAX_ITEMS = 10000;
 const MAX_ATTRIBUTES = 100;
+
+const imageUpload = multer ({
+  storage: multer.memoryStorage (),
+  limits: {
+      fileSize: 30000000
+  },
+});
 
 const uploadChunk = async (req, res) => {
   const body = JSON.parse(req.body.toString());
@@ -49,12 +57,10 @@ const uploadChunk = async (req, res) => {
   }
 };
 
-const upload = async (req, res) => {
-  res.setHeader ('Access-Control-Allow-Origin', '*');
-
+const upload = async (inputName) => {
   let mimeType;
   let metadataArray = [];
-  const hash = ethers.utils.sha256(ethers.utils.toUtf8Bytes(req.body.fileName + req.ip));
+  const hash = ethers.utils.sha256(ethers.utils.toUtf8Bytes(inputName));
   const dir = `${TEMP_PATH}${hash}`;
 
   try {
@@ -72,35 +78,47 @@ const upload = async (req, res) => {
     fs.rmSync(`${dir}.zip`);
     await zip.close();
     if (numFiles > MAX_ITEMS + 1) {
-      return uploadRes(res, 400, "Zip contains too many files", dir);  
+      fs.rmSync(dir, {recursive: true});
+      return { errorCode: 400, errorMessage: "Zip contains too many files" };  
     }
     
     // Get metadata
     if (!fs.existsSync(`${dir}/media/metadata.csv`)) {
-      return uploadRes(res, 400, "No metadata.csv file found", dir);
+      fs.rmSync(dir, {recursive: true});
+      return { errorCode: 400, errorMessage: "No metadata.csv file found" };  
     }
     metadataArray = getMetadata(fs.readFileSync(`${dir}/media/metadata.csv`));
-    if (metadataArray.length != numFiles - 1) 
-      return uploadRes(res, 400, "CSV file contains wrong number of entries", dir);
+    if (metadataArray.errorCode) {
+      fs.rmSync(dir, {recursive: true});
+      return metadataArray;
+    }
+    if (metadataArray.length != numFiles - 1) {
+      fs.rmSync(dir, {recursive: true});
+      return { errorCode: 400, errorMessage: "CSV file contains wrong number of entries" };  
+    }
     fs.unlinkSync(`${dir}/media/metadata.csv`);
 
     // Get media files
     metadataArray.forEach(async (metadata) => {
       if (fs.lstatSync(`${dir}/media/${metadata.originalFileName}`).isDirectory()) {
-        return uploadRes(res, 400, "Zip contains directories", dir);
+        fs.rmSync(dir, {recursive: true});
+        return { errorCode: 400, errorMessage: "Zip contains directories" };  
       }
 
       if (fs.statSync(`${dir}/media/${metadata.originalFileName}`).size > 30000000) {
-        return uploadRes(res, 400, "Zip file contains files too large", dir);
+        fs.rmSync(dir, {recursive: true});
+        return { errorCode: 400, errorMessage: "Zip file contains files too large" };  
       }
 
       const _mimeType = mime.lookup(`${dir}/media/${metadata.originalFileName}`);
       if (!ALLOWED_MIME_TYPES.includes(_mimeType)) {
-        return uploadRes(res, 400, "Zip contains unsoported file mime types", dir);
+        fs.rmSync(dir, {recursive: true});
+        return { errorCode: 400, errorMessage: "Zip contains unsoported file mime types" };  
       }
       if (!mimeType) mimeType = _mimeType;
       else if (mimeType !== _mimeType) {
-        return uploadRes(res, 400, "Zip contains mixed file mime types", dir);
+        fs.rmSync(dir, {recursive: true});
+        return { errorCode: 400, errorMessage: "Zip contains mixed file mime types" };  
       }
 
       fs.renameSync(`${dir}/media/${metadata.originalFileName}`, `${dir}/media/${metadata.fileName}`);
@@ -115,8 +133,8 @@ const upload = async (req, res) => {
       };
     });
   } catch (err) {
-    console.log(err);
-    return uploadRes(res, 500, err.message, dir);
+    fs.rmSync(dir, {recursive: true});
+    return { errorCode: 500, errorMessage: err.message };  
   }
 
   // Upload to files to IPFS
@@ -142,14 +160,32 @@ const upload = async (req, res) => {
   });
   const metadataUri = await uploadToIPFS(`${dir}/metadata`);
 
-  return uploadRes(res, 200, {uri: metadataUri}, dir);
+  fs.rmSync(dir, {recursive: true});
+  return metadataUri;
 }
 
 const create = async (req, res, next) => {
-  console.log("TODO")
+  try {
+    const collection = await newCollection(
+        req.user.address, 
+        req.body.name, 
+        req.body.description, 
+        req.file
+    );
+    const metadataUri = await upload(req.body.fileName + req.ip);
+    if (metadataUri.errorCode) {
+      return res.status(metadataUri.errorCode).json(metadataUri.errorMessage);
+    }
+    return res.status(201).json({
+      collectionId: collection.id,
+      metadata: metadataUri,
+    });
+  } catch (err) {
+      next (err);
+  }
 };
 
-const verifyCollection = async (req, res, next) => {
+const verifyItems = async (req, res, next) => {
   console.log("TODO")
 };
 
@@ -169,11 +205,11 @@ const getMetadata = (csv) => {
       columns[1].toLowerCase() !== "description" ||
       columns[2].toLowerCase() !== "filename" 
     ) {
-      throw new Error("Invalid metadata file");
+      return { errorCode: 400, errorMessage: "Invalid metadata file"};
     }
   
     if (columns.length > MAX_ATTRIBUTES + 3) {
-      throw new Error("Too many attributes in metadata file");
+      return { errorCode: 400, errorMessage: "Too many attributes in metadata file"};
     }
   
     let ext;
@@ -186,9 +222,10 @@ const getMetadata = (csv) => {
       const _ext = fileName.split(".").pop() || "";
       if (ALLOWED_EXTENSIONS.includes(_ext)) {
         if (!ext) ext = _ext;
-        else if (ext !== _ext) throw new Error("Metadata file contains mixed file extensions");
+        else if (ext !== _ext) 
+          return { errorCode: 400, errorMessage: "Metadata file contains mixed file extensions"};
       } else {
-        throw new Error("Metadata file contains unsopported file extensions");
+        return { errorCode: 400, errorMessage: "Metadata file contains unsopported file extensions"};
       }
 
       const metadata = {
@@ -241,10 +278,9 @@ module.exports = () => {
   const router = Router ();
   router.use (cors ());
 
-  router.post ('/verify', verify, verifyCollection);
+  router.post ('/verify', verify, verifyItems);
   router.post ('/upload-chunk', verify, uploadChunk);
-  router.post ('/upload', verify, upload);
-  router.post ('/create', verify, create);
+  router.post ('/create', [ verify, imageUpload.single ("fileData") ], create);
 
   return router;
 }
