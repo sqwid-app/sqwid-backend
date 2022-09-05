@@ -10,6 +10,19 @@ const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile')
 const mime = require('mime-types');
 const { initIpfs } = require("../../lib/IPFS");
 const multer = require ('multer');
+const { newCollection } = require('../../lib/collection');
+const { getWallet } = require("../../lib/getWallet");
+const getNetwork = require('../../lib/getNetwork');
+const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
+const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
+const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
+const { getEVMAddress } = require ('../../lib/getEVMAddress');
+const { default: axios } = require("axios");
+const { getInfuraURL } = require("../../lib/getIPFSURL");
+const firebase = require("../../lib/firebase");
+const { syncTraitsToCollection } = require("../../lib/synctraits");
 
 const TEMP_PATH = "./temp-uploads/";
 const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "mp4"];
@@ -58,7 +71,7 @@ const uploadChunk = async (req, res) => {
 };
 
 const upload = async (inputName) => {
-  let mimeType;
+  let mimetype;
   let metadataArray = [];
   const hash = ethers.utils.sha256(ethers.utils.toUtf8Bytes(inputName));
   const dir = `${TEMP_PATH}${hash}`;
@@ -110,20 +123,20 @@ const upload = async (inputName) => {
         return { errorCode: 400, errorMessage: "Zip file contains files too large" };  
       }
 
-      const _mimeType = mime.lookup(`${dir}/media/${metadata.originalFileName}`);
-      if (!ALLOWED_MIME_TYPES.includes(_mimeType)) {
+      const _mimetype = mime.lookup(`${dir}/media/${metadata.originalFileName}`);
+      if (!ALLOWED_MIME_TYPES.includes(_mimetype)) {
         fs.rmSync(dir, {recursive: true});
         return { errorCode: 400, errorMessage: "Zip contains unsoported file mime types" };  
       }
-      if (!mimeType) mimeType = _mimeType;
-      else if (mimeType !== _mimeType) {
+      if (!mimetype) mimetype = _mimetype;
+      else if (mimetype !== _mimetype) {
         fs.rmSync(dir, {recursive: true});
         return { errorCode: 400, errorMessage: "Zip contains mixed file mime types" };  
       }
 
       fs.renameSync(`${dir}/media/${metadata.originalFileName}`, `${dir}/media/${metadata.fileName}`);
 
-      if (_mimeType.startsWith('image')) {
+      if (_mimetype.startsWith('image')) {
         const [thumbnail, small] = await Promise.all([
           generateThumbnail(`${dir}/media/${metadata.fileName}`), 
           generateSmallSize(`${dir}/media/${metadata.fileName}`)
@@ -139,7 +152,7 @@ const upload = async (inputName) => {
 
   // Upload to files to IPFS
   const uploadsArray = [uploadToIPFS(`${dir}/media`)];
-  if (mimeType.startsWith('image')) {
+  if (mimetype.startsWith('image')) {
     uploadsArray.push(uploadToIPFS(`${dir}/small`));
     uploadsArray.push(uploadToIPFS(`${dir}/thumbnail`));
   }
@@ -154,31 +167,37 @@ const upload = async (inputName) => {
       media: `${uploads[0]}/${met.fileName}`,
       image: `${uploads[1] || uploads[0]}/${met.fileName}`,
       thumbnail: `${uploads[2] || uploads[0]}/${met.fileName}`,
-      mimeType: mimeType,
+      mimetype: mimetype,
     }
     fs.writeFileSync(`${dir}/metadata/${eip1155Id(index + 1)}.json`, JSON.stringify(metadata));
   });
   const metadataUri = await uploadToIPFS(`${dir}/metadata`);
 
   fs.rmSync(dir, {recursive: true});
-  return metadataUri;
+  return { 
+    metadataUri, 
+    mimetype, 
+    numItems: metadataArray.length, 
+  };
 }
 
 const create = async (req, res, next) => {
   try {
     const collection = await newCollection(
         req.user.address, 
-        req.body.name, 
-        req.body.description, 
+        req.body.collectionName, 
+        req.body.collectionDescription, 
         req.file
     );
-    const metadataUri = await upload(req.body.fileName + req.ip);
-    if (metadataUri.errorCode) {
-      return res.status(metadataUri.errorCode).json(metadataUri.errorMessage);
+    const uploadRes = await upload(req.body.zipFile + req.ip);
+    if (uploadRes.errorCode) {
+      return res.status(uploadRes.errorCode).json(uploadRes.errorMessage);
     }
     return res.status(201).json({
       collectionId: collection.id,
-      metadata: metadataUri,
+      metadata: uploadRes.metadataUri,
+      mimetype: uploadRes.mimetype.split("/")[0],
+      numItems: uploadRes.numItems,
     });
   } catch (err) {
       next (err);
@@ -186,7 +205,90 @@ const create = async (req, res, next) => {
 };
 
 const verifyItems = async (req, res, next) => {
-  console.log("TODO")
+    const { provider } = await getWallet ();
+    const marketContract = utilityContract (provider);
+    const tokenContract = collectibleContract (provider);
+    const { itemIds, collectionId } = req.body;
+
+    const creatorPromise = getEVMAddress (req.user.address);
+    const collectionDocPromise = getDbCollections ([collectionId]);
+    const collectiblesPromise = getDbCollectibles (itemIds);
+    const [creator, collectionDoc, collectibles] = await Promise.all ([creatorPromise, collectionDocPromise, collectiblesPromise]);
+    if (collectibles.length === itemIds.length) return res.status (400).json ({
+        error: 'Collectibles already verified.'
+    });
+
+    let verifiedCount = 0;
+
+    // TODO - Verify all items in parallel
+    // verify user owns collection
+    if (collectionDoc.length && (collectionDoc [0].data.owner === creator)) {
+      await Promise.all(itemIds.map(async (id) => {
+        try {
+            const item = await marketContract.fetchItem (id);
+            let ipfsURI;
+            if (item.creator === creator) {
+                let meta = {};
+                try {
+                    ipfsURI = await tokenContract.uri (item.tokenId);
+                    const splitIndex = ipfsURI.lastIndexOf ('/');
+                    const response = await axios (getInfuraURL(ipfsURI.substring (0, splitIndex)) + ipfsURI.substring (splitIndex));
+                    meta = response.data;
+                } catch (err) {
+                    console.log (err);
+                }
+
+                if (!meta.name) return res.status (400).json ({
+                    error: 'Blockchain item not found'
+                });
+
+                const attributes = meta?.attributes || [];
+                const traits = {};
+                attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
+          
+                await Promise.all ([
+                    firebase.collection ('collectibles').add ({
+                        id,
+                        uri: ipfsURI,
+                        collectionId,
+                        createdAt: new Date (),
+                        creator,
+                        meta,
+                        approved: null,
+                        ...traits
+                    }),
+                    syncTraitsToCollection (collectionId, traits)
+                ]);
+
+                // TODO REMOVE
+                const snapshot = await firebase.collection ('collectibles').get();
+                let collectibles = [];
+                snapshot.forEach (doc => {
+                    collectibles.push ({ id: doc.id, data: doc.data () });
+                });
+                console.log (collectibles);
+
+                verifiedCount++;
+            }
+        } catch (err) {
+            next (err);
+        }
+      }));
+
+      if (verifiedCount === itemIds.length) {
+        res.status (200).json ({
+          message: 'Items verified.'
+        });
+      } else {
+        res.status (500).json ({
+          error: `${itemIds.length - verifiedCount} items have not been verified.`
+        });
+      }
+    } else {
+        return res.status (403).json ({
+            error: 'You are not the owner of this collection.'
+        });
+    }
 };
 
 const getMetadata = (csv) => {
@@ -269,18 +371,13 @@ const eip1155Id = (id) => {
   return id.toString(16).padStart(64, "0");
 };
 
-const uploadRes = (res, code, message, dir) => {
-  fs.rmSync(dir, {recursive: true});
-  return res.status(code).json(code == 200 ? message : {error: message.toString()});
-}
-
 module.exports = () => {
   const router = Router ();
   router.use (cors ());
 
   router.post ('/verify', verify, verifyItems);
   router.post ('/upload-chunk', verify, uploadChunk);
-  router.post ('/create', [ verify, imageUpload.single ("fileData") ], create);
+  router.post ('/create', [ verify, imageUpload.single ("coverFile") ], create);
 
   return router;
 }
