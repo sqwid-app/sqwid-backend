@@ -238,7 +238,7 @@ const generateSmallSize = async file => {
 const mediaUpload = multer ({
     storage: multer.memoryStorage (),
     limits: {
-        fileSize: 30000000
+        fileSize: 100000000
     },
 });
 
