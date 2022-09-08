@@ -26,11 +26,11 @@ const { syncTraitsToCollection } = require("../../lib/synctraits");
 const { TEMP_PATH } = require("../../constants");
 const cleanTempUploads = require("../../scripts/cleanTempUploads");
 
-const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "mp4"];
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "video/mp4"];
+const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png"];
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png"];
 const MAX_ITEMS = 10000;
 const MAX_ATTRIBUTES = 100;
-const MAX_FILE_SIZE = 100000000;
+const MAX_FILE_SIZE = 100000000; // 100MB
 
 const imageUpload = multer ({
   storage: multer.memoryStorage (),
@@ -144,14 +144,12 @@ const upload = async (inputName) => {
 
       fs.renameSync(`${dir}/media/${metadata.originalFileName}`, `${dir}/media/${metadata.fileName}`);
 
-      if (_mimetype.startsWith('image')) {
-        const [thumbnail, small] = await Promise.all([
-          generateThumbnail(`${dir}/media/${metadata.fileName}`), 
-          generateSmallSize(`${dir}/media/${metadata.fileName}`)
-        ]);
-        fs.writeFileSync(`${dir}/thumbnail/${metadata.fileName}`, thumbnail);
-        fs.writeFileSync(`${dir}/small/${metadata.fileName}`, small);
-      };
+      const [thumbnail, small] = await Promise.all([
+        generateThumbnail(`${dir}/media/${metadata.fileName}`), 
+        generateSmallSize(`${dir}/media/${metadata.fileName}`)
+      ]);
+      fs.writeFileSync(`${dir}/thumbnail/${metadata.fileName}`, thumbnail);
+      fs.writeFileSync(`${dir}/small/${metadata.fileName}`, small);
     };
   } catch (err) {
     fs.rmSync(dir, {recursive: true});
@@ -160,11 +158,11 @@ const upload = async (inputName) => {
 
   // Upload to files to IPFS
   console.log("uploading files to IPFS");
-  const uploadsArray = [uploadToIPFS(`${dir}/media`)];
-  if (mimetype.startsWith('image')) {
-    uploadsArray.push(uploadToIPFS(`${dir}/small`));
-    uploadsArray.push(uploadToIPFS(`${dir}/thumbnail`));
-  }
+  const uploadsArray = [
+    uploadToIPFS(`${dir}/media`),
+    uploadToIPFS(`${dir}/small`),
+    uploadToIPFS(`${dir}/thumbnail`)
+  ];
   const uploads = await Promise.all(uploadsArray);
   
   // Upload metadata to IPFS
@@ -186,7 +184,6 @@ const upload = async (inputName) => {
   fs.rmSync(dir, {recursive: true});
   return { 
     metadataUri, 
-    mimetype, 
     numItems: metadataArray.length, 
   };
 }
@@ -206,7 +203,6 @@ const create = async (req, res, next) => {
     return res.status(201).json({
       collectionId: collection.id,
       metadata: uploadRes.metadataUri,
-      mimetype: uploadRes.mimetype.split("/")[0],
       numItems: uploadRes.numItems,
     });
   } catch (err) {
