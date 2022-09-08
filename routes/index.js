@@ -37,7 +37,7 @@ const editLimiter = rateLimit ({
 
 const createBulkLimiter = rateLimit ({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 22, // limit each IP to 22 requests per windowMs
+    max: 52, // limit each IP to 52 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
 });

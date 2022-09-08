@@ -23,12 +23,14 @@ const { default: axios } = require("axios");
 const { getInfuraURL } = require("../../lib/getIPFSURL");
 const firebase = require("../../lib/firebase");
 const { syncTraitsToCollection } = require("../../lib/synctraits");
+const { TEMP_PATH } = require("../../constants");
+const cleanTempUploads = require("../../scripts/cleanTempUploads");
 
-const TEMP_PATH = "./temp-uploads/";
 const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "mp4"];
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "video/mp4"];
 const MAX_ITEMS = 10000;
 const MAX_ATTRIBUTES = 100;
+const MAX_FILE_SIZE = 100000000;
 
 const imageUpload = multer ({
   storage: multer.memoryStorage (),
@@ -42,7 +44,7 @@ const uploadChunk = async (req, res) => {
 
   const firstChunk = body.chunk === 0;
   const lastChunk = body.chunk === body.totalChunks - 1;
-  if (body.fileName.split(".").pop() !== "zip") {
+  if (body.fileName.split(".").pop().toLowerCase() !== "zip") {
     res.status (400).json ({
       error: 'Invalid file extension'
     });
@@ -112,13 +114,19 @@ const upload = async (inputName) => {
     fs.unlinkSync(`${dir}/media/metadata.csv`);
 
     // Get media files
-    metadataArray.forEach(async (metadata) => {
+    for (let i = 0; i < metadataArray.length; i++) {
+      const metadata = metadataArray[i];
+      if (!fs.existsSync(`${dir}/media/${metadata.originalFileName}`)) {
+        fs.rmSync(dir, {recursive: true});
+        return { errorCode: 400, errorMessage: `File ${metadata.originalFileName} not found` };
+      }
+
       if (fs.lstatSync(`${dir}/media/${metadata.originalFileName}`).isDirectory()) {
         fs.rmSync(dir, {recursive: true});
         return { errorCode: 400, errorMessage: "Zip contains directories" };  
       }
 
-      if (fs.statSync(`${dir}/media/${metadata.originalFileName}`).size > 30000000) {
+      if (fs.statSync(`${dir}/media/${metadata.originalFileName}`).size > MAX_FILE_SIZE) {
         fs.rmSync(dir, {recursive: true});
         return { errorCode: 400, errorMessage: "Zip file contains files too large" };  
       }
@@ -144,13 +152,14 @@ const upload = async (inputName) => {
         fs.writeFileSync(`${dir}/thumbnail/${metadata.fileName}`, thumbnail);
         fs.writeFileSync(`${dir}/small/${metadata.fileName}`, small);
       };
-    });
+    };
   } catch (err) {
     fs.rmSync(dir, {recursive: true});
     return { errorCode: 500, errorMessage: err.message };  
   }
 
   // Upload to files to IPFS
+  console.log("uploading files to IPFS");
   const uploadsArray = [uploadToIPFS(`${dir}/media`)];
   if (mimetype.startsWith('image')) {
     uploadsArray.push(uploadToIPFS(`${dir}/small`));
@@ -159,6 +168,7 @@ const upload = async (inputName) => {
   const uploads = await Promise.all(uploadsArray);
   
   // Upload metadata to IPFS
+  console.log("uploading metadata IPFS");
   metadataArray.forEach((met, index) => {
     const metadata = {
       name: met.name,
@@ -191,7 +201,7 @@ const create = async (req, res, next) => {
     );
     const uploadRes = await upload(req.body.zipFile + req.ip);
     if (uploadRes.errorCode) {
-      return res.status(uploadRes.errorCode).json(uploadRes.errorMessage);
+      return res.status(uploadRes.errorCode).json({error: uploadRes.errorMessage});
     }
     return res.status(201).json({
       collectionId: collection.id,
@@ -231,8 +241,7 @@ const verifyItems = async (req, res, next) => {
                 let meta = {};
                 try {
                     ipfsURI = await tokenContract.uri (item.tokenId);
-                    const splitIndex = ipfsURI.lastIndexOf ('/');
-                    const response = await axios (getInfuraURL(ipfsURI.substring (0, splitIndex)) + ipfsURI.substring (splitIndex));
+                    const response = await axios (getInfuraURL(ipfsURI));
                     meta = response.data;
                 } catch (err) {
                     console.log (err);
@@ -259,14 +268,6 @@ const verifyItems = async (req, res, next) => {
                     }),
                     syncTraitsToCollection (collectionId, traits)
                 ]);
-
-                // TODO REMOVE
-                const snapshot = await firebase.collection ('collectibles').get();
-                let collectibles = [];
-                snapshot.forEach (doc => {
-                    collectibles.push ({ id: doc.id, data: doc.data () });
-                });
-                console.log (collectibles);
 
                 verifiedCount++;
             }
@@ -370,6 +371,11 @@ const uploadToIPFS = async (dir) => {
 const eip1155Id = (id) => {
   return id.toString(16).padStart(64, "0");
 };
+
+// TODO move to cron job
+setInterval(() => {
+	cleanTempUploads();
+}, 1000 * 60 * 30); // 30 minutes
 
 module.exports = () => {
   const router = Router ();
