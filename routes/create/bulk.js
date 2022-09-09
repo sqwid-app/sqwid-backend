@@ -166,7 +166,6 @@ const upload = async (inputName) => {
   const uploads = await Promise.all(uploadsArray);
   
   // Upload metadata to IPFS
-  console.log("uploading metadata IPFS");
   metadataArray.forEach((met, index) => {
     const metadata = {
       name: met.name,
@@ -177,7 +176,7 @@ const upload = async (inputName) => {
       thumbnail: `${uploads[2] || uploads[0]}/${met.fileName}`,
       mimetype: mimetype,
     }
-    fs.writeFileSync(`${dir}/metadata/${eip1155Id(index + 1)}.json`, JSON.stringify(metadata));
+    fs.writeFileSync(`${dir}/metadata/${hexId(index + 1)}.json`, JSON.stringify(metadata));
   });
   const metadataUri = await uploadToIPFS(`${dir}/metadata`);
 
@@ -226,7 +225,6 @@ const verifyItems = async (req, res, next) => {
 
     let verifiedCount = 0;
 
-    // TODO - Verify all items in parallel
     // verify user owns collection
     if (collectionDoc.length && (collectionDoc [0].data.owner === creator)) {
       await Promise.all(itemIds.map(async (id) => {
@@ -331,7 +329,7 @@ const getMetadata = (csv) => {
         name: name,
         description: records[i][1],
         originalFileName: fileName,
-        fileName: `${eip1155Id(i)}.${ext}`,
+        fileName: `${hexId(i)}.${ext}`,
         attributes: [],
       };
   
@@ -364,9 +362,7 @@ const uploadToIPFS = async (dir) => {
   return `ipfs://${cid}`;
 }
 
-const eip1155Id = (id) => {
-  return id.toString(16).padStart(64, "0");
-};
+const hexId = (id) => { return id.toString(16).padStart(5, "0"); };
 
 // TODO move to cron job
 setInterval(() => {
