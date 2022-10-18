@@ -10,6 +10,7 @@ const getCollectionsRoutes = require ('./get/collections').router;
 const getUserRoutes = require ('./get/user').router;
 const getEditUserRoutes = require ('./edit/user');
 const getUpdateFeaturedRoutes = require ('./edit/featured');
+const getEditCollectibleRoutes = require ('./edit/collectible');
 // const getVerifyJWTRoutes = require ('./verifyjwt');
 // const getEditEVMAddressRoutes = require ('./edit/evmAddress');
 // const getSyncCollectiblesRoutes = require ('./sync/collectibles');
@@ -46,6 +47,7 @@ module.exports = () => {
     router.use ('/get/user', getUserRoutes ());
     router.use ('/edit/user', editLimiter, getEditUserRoutes ());
     router.use ('/edit/featured', editLimiter, getUpdateFeaturedRoutes ());
+    router.use ('/edit/collectible', editLimiter, getEditCollectibleRoutes ());
     router.use ('/statswatch', getStatswatchRoutes ());
     router.use ('/heart', getHeartsRoutes ());
     router.use ('/search', searchRoutes ());
