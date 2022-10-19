@@ -8,6 +8,7 @@ const { getDbCollections } = require('../get/marketplace');
 
 const moveToCollection = async (req, res) => {
     const { collectionId, itemId } = req.body;
+    const { evmAddress } = req.user;
     const collectiblePromise = firebase.collection ('collectibles').where ('id', '==', Number (itemId)).get ();
     const collectionPromise = getDbCollections ([collectionId]);
     const allowedPromise = firebase.collection ('blacklists').doc ('collectibles').get ();
@@ -15,6 +16,9 @@ const moveToCollection = async (req, res) => {
     if (!collectible.empty) {
         const collectibleId = collectible.docs [0].id;
         collectible = collectible.docs [0].data ();
+        if (collectible.creator.toLowerCase () !== evmAddress.toLowerCase ()) {
+            return res.status (403).json ({ error: 'You are not the creator of this collectible' });
+        }
         // old collection was default
         if (collectible.collectionId === defaultCollectionId) {
             if (collection.length) {
