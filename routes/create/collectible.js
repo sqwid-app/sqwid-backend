@@ -3,7 +3,6 @@ const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
 const ethers = require ('ethers');
 const multer = require ('multer');
-const sharp = require ('sharp');
 // const { NFTStorage, File } = require ('nft.storage');
 const getNetwork = require('../../lib/getNetwork');
 // const { FieldValue } = require ('firebase-admin').firestore;
@@ -23,13 +22,11 @@ const collectibleContract = (signerOrProvider, address = null) => new ethers.Con
 // const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 
-const ipfsClient = require ('ipfs-http-client');
 const { syncTraitsToCollection } = require('../../lib/synctraits');
+const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
+const { initIpfs } = require('../../lib/IPFS');
 // 
 // import { create as ipfsClient } from 'ipfs-http-client';
-
-const infuraAuth =
-    'Basic ' + Buffer.from(process.env.INFURA_IPFS_PROJECT_ID + ':' + process.env.INFURA_IPFS_PROJECT_SECRET).toString('base64');
 
 /*
 const mediaUpload = multer ({
@@ -195,44 +192,11 @@ const verifyItem = async (req, res, next) => {
 }
 
 const uploadToIPFS = async file => {
-    const ipfs = ipfsClient.create ({
-        host: "ipfs.infura.io",
-        port: 5001,
-        protocol: "https",
-        headers: {
-            authorization: infuraAuth,
-        }
-    });
+    const ipfs = initIpfs();
     const buffer = file.arrayBuffer ? await file.arrayBuffer() : file;
     const addedFile = await ipfs.add(buffer);
     await ipfs.pin.add (addedFile.path);
     return addedFile.path;
-}
-
-const generateThumbnail = async file => {
-    const data = await sharp (file)
-        .resize ({
-            width: 512,
-            height: 512,
-            fit: sharp.fit.inside,
-            withoutEnlargement: true
-        })
-        .webp ()
-        .toBuffer ();
-    return data;
-}
-
-const generateSmallSize = async file => {
-    const data = await sharp (file)
-        .resize ({
-            width: 1280,
-            height: 1280,
-            fit: sharp.fit.inside,
-            withoutEnlargement: true
-        })
-        .webp ()
-        .toBuffer ();
-    return data;
 }
 
 const mediaUpload = multer ({
