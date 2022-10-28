@@ -266,6 +266,9 @@ const getNamesByEVMAddresses = async (addresses) => {
     return cached.concat (fResult);
 }
 
+const getItemIdByTokenId = async (tokenId, contract) => {
+}
+
 const buildObjectsFromItems = async (items) => {
     const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
     const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]));
@@ -294,6 +297,86 @@ const buildObjectsFromItems = async (items) => {
         collections: collectionsObject,
         names: namesObj
     }
+}
+
+const getClaimableItems = async (address) => {
+    let q = firebase.collection ('transfers').where ('claimable', '==', true).where ('to', '==', address);
+    const snapshot = await q.get ();
+    let items = {};
+    // reduce to unique items
+    snapshot.forEach (doc => {
+        const data = doc.data ();
+        if (items [data.tokenId]) 
+            items [data.tokenId].amount += data.amount;
+        else
+            items [data.tokenId] = data;
+    });
+    const itemIds = [];
+    // get itemId from tokenId
+    items = Object.values (items);
+    items = await Promise.all (items.map (async (item, i) => {
+        let itemIdQ = firebase.collection ('itemCreations').where ('tokenId', '==', item.tokenId);
+        const itemIdSnapshot = await itemIdQ.get ();
+        if (itemIdSnapshot.empty) {
+            console.log ('No matching documents.');
+            return;
+        }
+        // const itemId = itemIdSnapshot.docs [0]?.data ().itemId;
+        const itemData = itemIdSnapshot.docs [0]?.data ();
+        const { itemId, creator } = itemData;
+        itemIds.push (itemId);
+        return { ...item, itemId, creator };
+    }));
+    // get item data
+    const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]));
+    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.from, item.operator, item.to, item.creator], []));
+    const collectiblesPromise = getDbCollectibles (itemIds);
+    const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
+    const collectionsPromise = getDbCollections (Array.from (collectionsSet));
+    const [collectibles, names, collections] = await Promise.all ([collectiblesPromise, namesPromise, collectionsPromise]);
+    const collectiblesObject = collectibles.reduce ((acc, curr) => {
+        acc [curr.id] = curr;
+        return acc;
+    }, {});
+
+    const collectionsObject = collections.reduce ((acc, collection) => {
+        delete collection.data.traits;
+        return { ...acc, [collection.id]: { ...collection.data, id: collection.id } };
+    }, {});
+    let namesObj;
+    names.forEach (name => {
+        namesObj = { ...namesObj, [name.address]: name.name };
+    });
+    const results = items.map (item => {
+        const meta = collectiblesObject [item.itemId];
+        const collection = collectionsObject [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]];
+        return {
+            ...item,
+            meta,
+            collection,
+            from: {
+                name: namesObj [item.from],
+                address: item.from,
+                avatar: `https://avatars.dicebear.com/api/identicon/${item.from}.svg`
+            },
+            to: {
+                name: namesObj [item.to],
+                address: item.to,
+                avatar: `https://avatars.dicebear.com/api/identicon/${item.to}.svg`
+            },
+            operator: {
+                name: namesObj [item.operator],
+                address: item.operator,
+                avatar: `https://avatars.dicebear.com/api/identicon/${item.operator}.svg`
+            },
+            creator: {
+                name: namesObj [meta.creator],
+                address: meta.creator,
+                avatar: `https://avatars.dicebear.com/api/identicon/${meta.creator}.svg`
+            }
+        }
+    });
+    return results;
 }
 
 const grabItemsWithTraits = async (traits, collectionId) => {
@@ -557,6 +640,19 @@ const fetchBidsByOwner = async (req, res) => {
     }
 }
 
+const fetchClaimable = async (req, res) => {
+    const { evmAddress } = req.user;
+    try {
+        const claimable = await getClaimableItems (evmAddress);
+        res.status (200).json (claimable);
+    } catch (err) {
+        console.log (err);
+        res.status (404).json ({
+            error: err.toString ()
+        });
+    }
+}
+
 
 module.exports = {
     router: () => {
@@ -571,6 +667,7 @@ module.exports = {
         router.get ('/balance', verify, fetchBalance);
         router.get ('/withdrawable', verify, fetchWithdrawable);
         router.get ('/bids', verify, fetchBidsByOwner);
+        router.get ('/claimables', verify, fetchClaimable);
         return router;
     },
     getDbCollections,

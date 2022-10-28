@@ -252,6 +252,7 @@ const verifyItems = async (req, res, next) => {
                 await Promise.all ([
                     firebase.collection ('collectibles').add ({
                         id,
+                        tokenId: item.tokenId,
                         uri: ipfsURI,
                         collectionId,
                         createdAt: new Date (),

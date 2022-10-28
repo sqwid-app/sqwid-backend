@@ -60,6 +60,7 @@ module.exports = () => {
     router.use ('/statswatch', getStatswatchRoutes ());
     router.use ('/heart', getHeartsRoutes ());
     router.use ('/search', searchRoutes ());
+    router.use ('/claim', require ('./edit/claimTransfer').router ());
 
     router.get ('/', (req, res) => {
         res.send ('Sqwid API');
