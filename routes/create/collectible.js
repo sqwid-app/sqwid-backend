@@ -159,10 +159,16 @@ const verifyItem = async (req, res, next) => {
                     attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
                 }
 
+                if (!meta.mimetype) {
+                    const h = await axios.head (getInfuraURL (meta.media));
+                    const mimetype = h.headers ['content-type'];
+                    meta.mimetype = mimetype;
+                }
+
                 await Promise.all ([
                     firebase.collection ('collectibles').add ({
                         id,
-                        tokenId: item.tokenId,
+                        tokenId: item.tokenId.toNumber (),
                         uri: ipfsURI,
                         collectionId,
                         createdAt: new Date (),
