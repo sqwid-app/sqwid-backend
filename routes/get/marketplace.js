@@ -327,7 +327,15 @@ const getClaimableItems = async (address) => {
         itemIds.push (itemId);
         return { ...item, itemId, creator };
     }));
+    items = items.filter (item => approvedIds.find (i => i.id === Number (item.itemId)));
     // get item data
+    // const collectionsSet = new Set (items.map (item => {
+    //     try {
+    //         return collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]
+    //     } catch (e) {
+    //         return null;
+    //     }
+    // }).filter (i => i));
     const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]));
     const addresses = new Set (items.reduce ((acc, item) => [...acc, item.from, item.operator, item.to, item.creator], []));
     const collectiblesPromise = getDbCollectibles (itemIds);
@@ -673,6 +681,19 @@ const fetchClaimableCount = async (req, res) => {
     }
 }
 
+const test = async (req, res) => {
+    const { evmAddress } = req.params;
+    try {
+        const claimable = await getClaimableItems (evmAddress);
+        res.status (200).json (claimable);
+    } catch (err) {
+        console.log (err);
+        res.status (404).json ({
+            error: err.toString ()
+        });
+    }
+}
+
 module.exports = {
     router: () => {
         const router = Router ();
@@ -688,6 +709,7 @@ module.exports = {
         router.get ('/bids', verify, fetchBidsByOwner);
         router.get ('/claimables', verify, fetchClaimable);
         router.get ('/claimables/count', verify, fetchClaimableCount);
+        router.get ('/test/:evmAddress', test);
         return router;
     },
     getDbCollections,
