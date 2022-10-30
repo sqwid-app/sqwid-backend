@@ -5,6 +5,7 @@ const { verify } = require ('../../middleware/auth');
 const claimTokens = async (req, res) => {
     const { evmAddress } = req.user;
     const { tokenId } = req.params;
+    const { remove } = req.body;
     console.log (evmAddress, tokenId);
     const q = await firebase.collection ('transfers').where ('to', '==', evmAddress).where ('tokenId', '==', Number (tokenId)).get ();
     if (q.empty) {
@@ -13,9 +14,13 @@ const claimTokens = async (req, res) => {
         });
     } else {
         q.forEach (async doc => {
-            await doc.ref.update ({
-                claimable: false
-            }, { merge: true });
+            if (remove) {
+                await doc.ref.delete ();
+            } else {
+                await doc.ref.update ({
+                    claimable: false
+                }, { merge: true });
+            }
         });
         res.status (200).json ({
             success: true
