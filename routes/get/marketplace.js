@@ -379,6 +379,11 @@ const getClaimableItems = async (address) => {
     return results;
 }
 
+const getClaimableItemsCount = async (address) => {
+    let snapshot = await firebase.collection ('transfers').where ('claimable', '==', true).where ('to', '==', address).count ().get ();
+    return snapshot.data ().count;
+}
+
 const grabItemsWithTraits = async (traits, collectionId) => {
     let baseQ = firebase.collection ('collectibles').where ('collectionId', '==', collectionId);
     const queries = Object.keys (traits).map (trait => {
@@ -653,6 +658,20 @@ const fetchClaimable = async (req, res) => {
     }
 }
 
+const fetchClaimableCount = async (req, res) => {
+    const { evmAddress } = req.user;
+    try {
+        const count = await getClaimableItemsCount (evmAddress);
+        res.status (200).json ({
+            count
+        });
+    } catch (err) {
+        console.log (err);
+        res.status (404).json ({
+            error: err.toString ()
+        });
+    }
+}
 
 module.exports = {
     router: () => {
@@ -668,6 +687,7 @@ module.exports = {
         router.get ('/withdrawable', verify, fetchWithdrawable);
         router.get ('/bids', verify, fetchBidsByOwner);
         router.get ('/claimables', verify, fetchClaimable);
+        router.get ('/claimables/count', verify, fetchClaimableCount);
         return router;
     },
     getDbCollections,

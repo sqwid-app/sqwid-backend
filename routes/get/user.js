@@ -27,7 +27,7 @@ const getUser = async (req, res) => {
     const { identifier } = req.params;
     let userBySubstrateAddress = firebase.collection ('users').doc (identifier).get ();
     let userByEvmAddress = firebase.collection ('users').where ('evmAddress', '==', identifier).get ();
-    let user;
+    let user, response;
     try {
         user = await Promise.all ([userBySubstrateAddress, userByEvmAddress]);
     } catch (e) {
@@ -38,17 +38,21 @@ const getUser = async (req, res) => {
     if (user[0].exists) {
         const data = user[0].data ();
         delete data.nonce;
-        res?.json (data);
-        return data;
+        response = data;
+        // res?.json (data);
+        // return data;
     } else if (user[1].empty) {
         res?.status (404).json ({ error: 'User not found' });
         return null;
     } else {
         const data = user[1].docs[0].data ();
         delete data.nonce;
-        res?.json (data);
-        return data;
+        response = data;
+        // res?.json (data);
+        // return data;
     }
+    res?.json (response);
+    return response;
 }
 
 module.exports = {
