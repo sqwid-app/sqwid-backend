@@ -284,7 +284,7 @@ const verifyItems = async (req, res, next) => {
         } catch (err) {
             next (err);
         }
-      }), 50);
+      }), 25);
 
       for (const chunk of chunks) {
         await Promise.all (chunk);
