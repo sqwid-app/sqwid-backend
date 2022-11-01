@@ -209,6 +209,14 @@ const create = async (req, res, next) => {
   }
 };
 
+const chunkPromises = (array, chunkSize) => {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
 const verifyItems = async (req, res, next) => {
     const { provider } = await getWallet ();
     const marketContract = utilityContract (provider);
@@ -227,7 +235,8 @@ const verifyItems = async (req, res, next) => {
 
     // verify user owns collection
     if (collectionDoc.length && (collectionDoc [0].data.owner === creator)) {
-      await Promise.all(itemIds.map(async (id) => {
+
+      const chunks = chunkPromises (itemIds.map (async (id) => {
         try {
             const item = await marketContract.fetchItem (id);
             let ipfsURI;
@@ -275,7 +284,61 @@ const verifyItems = async (req, res, next) => {
         } catch (err) {
             next (err);
         }
-      }));
+      }), 50);
+
+      for (const chunk of chunks) {
+        await Promise.all (chunk);
+        await new Promise (resolve => setTimeout (resolve, 250));
+      }
+      // await Promise.all(itemIds.map(async (id) => {
+      //   try {
+      //       const item = await marketContract.fetchItem (id);
+      //       let ipfsURI;
+      //       if (item.creator === creator) {
+      //           let meta = {};
+      //           try {
+      //               ipfsURI = await tokenContract.uri (item.tokenId);
+      //               const response = await axios (getInfuraURL(ipfsURI));
+      //               meta = response.data;
+      //           } catch (err) {
+      //               console.log (err);
+      //           }
+
+      //           if (!meta.name) return res.status (400).json ({
+      //               error: 'Blockchain item not found'
+      //           });
+
+      //           const attributes = meta?.attributes || [];
+      //           const traits = {};
+      //           attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
+                
+      //           if (!meta.mimetype) {
+      //             const h = await axios.head (getInfuraURL (meta.media));
+      //             const mimetype = h.headers ['content-type'];
+      //             meta.mimetype = mimetype;
+      //           }
+
+      //           await Promise.all ([
+      //               firebase.collection ('collectibles').add ({
+      //                   id,
+      //                   tokenId: item.tokenId.toNumber (),
+      //                   uri: ipfsURI,
+      //                   collectionId,
+      //                   createdAt: new Date (),
+      //                   creator,
+      //                   meta,
+      //                   approved: null,
+      //                   ...traits
+      //               }),
+      //               syncTraitsToCollection (collectionId, traits)
+      //           ]);
+
+      //           verifiedCount++;
+      //       }
+      //   } catch (err) {
+      //       next (err);
+      //   }
+      // }));
 
       if (verifiedCount === itemIds.length) {
         res.status (200).json ({
