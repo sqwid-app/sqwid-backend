@@ -223,6 +223,8 @@ const verifyItems = async (req, res, next) => {
     const tokenContract = collectibleContract (provider);
     const { itemIds, collectionId } = req.body;
 
+    console.log (itemIds);
+
     const creatorPromise = getEVMAddress (req.user.address);
     const collectionDocPromise = getDbCollections ([collectionId]);
     const collectiblesPromise = getDbCollectibles (itemIds);
@@ -233,10 +235,13 @@ const verifyItems = async (req, res, next) => {
 
     let verifiedCount = 0;
 
+    // const creator = "0x41ce5598DFfd0e96f08C74d4A8cAd097d5Cc51cc";
+
     // verify user owns collection
     if (collectionDoc.length && (collectionDoc [0].data.owner === creator)) {
 
-      const chunks = chunkPromises (itemIds.map (async (id) => {
+      // let toProcess = itemIds.map (async (id) => {
+      itemIds.forEach (async (id) => {
         try {
             const item = await marketContract.fetchItem (id);
             let ipfsURI;
@@ -280,16 +285,24 @@ const verifyItems = async (req, res, next) => {
                 ]);
 
                 verifiedCount++;
+                console.log (verifiedCount);
             }
         } catch (err) {
             next (err);
         }
-      }), 25);
+        await new Promise (resolve => setTimeout (resolve, 500));
+      });
+      // });
 
-      for (const chunk of chunks) {
-        await Promise.all (chunk);
-        await new Promise (resolve => setTimeout (resolve, 250));
-      }
+      // try {
+      //   for (const pr of toProcess) {
+      //     await pr;
+      //     console.log (verifiedCount);
+      //     await new Promise (resolve => setTimeout (resolve, 1000));
+      //   }
+      // } catch (err) {
+      //   console.log (err);
+      // }
       // await Promise.all(itemIds.map(async (id) => {
       //   try {
       //       const item = await marketContract.fetchItem (id);
