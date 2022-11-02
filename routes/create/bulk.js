@@ -241,57 +241,59 @@ const verifyItems = async (req, res, next) => {
     if (collectionDoc.length && (collectionDoc [0].data.owner === creator)) {
 
       // let toProcess = itemIds.map (async (id) => {
-      itemIds.forEach (async (id) => {
-        try {
-            const item = await marketContract.fetchItem (id);
-            let ipfsURI;
-            if (item.creator === creator) {
-                let meta = {};
-                try {
-                    ipfsURI = await tokenContract.uri (item.tokenId);
-                    const response = await axios (getInfuraURL(ipfsURI));
-                    meta = response.data;
-                } catch (err) {
-                    console.log (err);
-                }
+      // itemIds.forEach (async (id) => {
+        for (let id of itemIds) {
+          try {
+              const item = await marketContract.fetchItem (id);
+              let ipfsURI;
+              if (item.creator === creator) {
+                  let meta = {};
+                  try {
+                      ipfsURI = await tokenContract.uri (item.tokenId);
+                      const response = await axios (getInfuraURL(ipfsURI));
+                      meta = response.data;
+                  } catch (err) {
+                      console.log (err);
+                  }
 
-                if (!meta.name) return res.status (400).json ({
-                    error: 'Blockchain item not found'
-                });
+                  if (!meta.name) return res.status (400).json ({
+                      error: 'Blockchain item not found'
+                  });
 
-                const attributes = meta?.attributes || [];
-                const traits = {};
-                attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
-                
-                if (!meta.mimetype) {
-                  const h = await axios.head (getInfuraURL (meta.media));
-                  const mimetype = h.headers ['content-type'];
-                  meta.mimetype = mimetype;
-                }
+                  const attributes = meta?.attributes || [];
+                  const traits = {};
+                  attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
+                  
+                  if (!meta.mimetype) {
+                    const h = await axios.head (getInfuraURL (meta.media));
+                    const mimetype = h.headers ['content-type'];
+                    meta.mimetype = mimetype;
+                  }
 
-                await Promise.all ([
-                    firebase.collection ('collectibles').add ({
-                        id,
-                        tokenId: item.tokenId.toNumber (),
-                        uri: ipfsURI,
-                        collectionId,
-                        createdAt: new Date (),
-                        creator,
-                        meta,
-                        approved: null,
-                        ...traits
-                    }),
-                    syncTraitsToCollection (collectionId, traits)
-                ]);
+                  await Promise.all ([
+                      firebase.collection ('collectibles').add ({
+                          id,
+                          tokenId: item.tokenId.toNumber (),
+                          uri: ipfsURI,
+                          collectionId,
+                          createdAt: new Date (),
+                          creator,
+                          meta,
+                          approved: null,
+                          ...traits
+                      }),
+                      syncTraitsToCollection (collectionId, traits)
+                  ]);
 
-                verifiedCount++;
-                console.log (verifiedCount);
-            }
-        } catch (err) {
-            next (err);
-        }
+                  verifiedCount++;
+                  console.log (verifiedCount);
+              }
+          } catch (err) {
+              next (err);
+          }
         await new Promise (resolve => setTimeout (resolve, 500));
-      });
+      }
+      // });
       // });
 
       // try {
