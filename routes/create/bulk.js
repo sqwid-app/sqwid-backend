@@ -223,7 +223,13 @@ const verifyItems = async (req, res, next) => {
     const tokenContract = collectibleContract (provider);
     const { itemIds, collectionId } = req.body;
 
-    console.log (itemIds);
+    if (!itemIds || !collectionId) {
+      return res.status(400).json({error: "Missing itemIds or collectionId"});
+    }
+
+    if (itemIds.length > 500) {
+      return res.status(400).json({error: "Too many items, max 500"});
+    }
 
     const creatorPromise = getEVMAddress (req.user.address);
     const collectionDocPromise = getDbCollections ([collectionId]);
@@ -235,14 +241,12 @@ const verifyItems = async (req, res, next) => {
 
     let verifiedCount = 0;
 
-    // const creator = "0x41ce5598DFfd0e96f08C74d4A8cAd097d5Cc51cc";
-
     // verify user owns collection
     if (collectionDoc.length && (collectionDoc [0].data.owner === creator)) {
 
       // let toProcess = itemIds.map (async (id) => {
       // itemIds.forEach (async (id) => {
-        for (let id of itemIds) {
+      for (let id of itemIds) {
           try {
               const item = await marketContract.fetchItem (id);
               let ipfsURI;
@@ -291,7 +295,7 @@ const verifyItems = async (req, res, next) => {
           } catch (err) {
               next (err);
           }
-        await new Promise (resolve => setTimeout (resolve, 500));
+          await new Promise (resolve => setTimeout (resolve, 10));
       }
       // });
       // });
