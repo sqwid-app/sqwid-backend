@@ -6,7 +6,6 @@ const claimTokens = async (req, res) => {
     const { evmAddress } = req.user;
     const { tokenId } = req.params;
     const { remove } = req.body;
-    console.log (evmAddress, tokenId);
     const q = await firebase.collection ('transfers').where ('to', '==', evmAddress).where ('tokenId', '==', Number (tokenId)).get ();
     if (q.empty) {
         res.status (404).json ({
