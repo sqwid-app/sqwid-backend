@@ -701,7 +701,6 @@ const statswatchHealth = async (req, res) => {
     ]);
     const lastUpdatedBlockNumber = lastUpdatedBlock.data ().lastUpdated;
     const diff = currentBlockNumber - lastUpdatedBlockNumber;
-    console.log (diff);
     if (diff > 50) {
         res.status (500).send ('Statswatch is not up to date');
     } else {
@@ -712,7 +711,6 @@ const statswatchHealth = async (req, res) => {
 const automodHealth = async (req, res) => {
     const lastUpdated = await firebase.collection ('automod-info').doc ('health').get ();
     const lastUpdatedTime = lastUpdated.data ().lastUpdated;
-    console.log (lastUpdatedTime, Date.now () - (lastUpdatedTime.seconds * 1000), 1000 * 60 * 5);
     if (Date.now () - (lastUpdatedTime.seconds * 1000) > 1000 * 60 * 10) {
         res.status (500).send ('Automod is not up to date');
     } else {
