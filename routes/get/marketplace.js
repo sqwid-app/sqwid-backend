@@ -1,5 +1,6 @@
 const ethers = require ('ethers');
 const { Router } = require ('express');
+const rateLimit = require ('express-rate-limit');
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
@@ -681,16 +682,41 @@ const fetchClaimableCount = async (req, res) => {
     }
 }
 
-const test = async (req, res) => {
-    const { evmAddress } = req.params;
-    try {
-        const claimable = await getClaimableItems (evmAddress);
-        res.status (200).json (claimable);
-    } catch (err) {
-        console.log (err);
-        res.status (404).json ({
-            error: err.toString ()
-        });
+const healthCheckLimiter = rateLimit ({
+	windowMs: 1 * 60 * 1000, // 1 minute
+	max: 6, // limit each IP to 3 requests per windowMs
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
+const health = async (req, res) => {
+    res.status (200).send ('OK');
+}
+
+const statswatchHealth = async (req, res) => {
+    const { provider } = await getWallet ();
+    const [currentBlockNumber, lastUpdatedBlock] = await Promise.all ([
+        provider.getBlockNumber (),
+        firebase.collection ('statswatch-info').doc ('block').get ()
+    ]);
+    const lastUpdatedBlockNumber = lastUpdatedBlock.data ().lastUpdated;
+    const diff = currentBlockNumber - lastUpdatedBlockNumber;
+    console.log (diff);
+    if (diff > 50) {
+        res.status (500).send ('Statswatch is not up to date');
+    } else {
+        res.status (200).send ('OK');
+    }
+}
+
+const automodHealth = async (req, res) => {
+    const lastUpdated = await firebase.collection ('automod-info').doc ('health').get ();
+    const lastUpdatedTime = lastUpdated.data ().lastUpdated;
+    console.log (lastUpdatedTime, Date.now () - (lastUpdatedTime.seconds * 1000), 1000 * 60 * 5);
+    if (Date.now () - (lastUpdatedTime.seconds * 1000) > 1000 * 60 * 10) {
+        res.status (500).send ('Automod is not up to date');
+    } else {
+        res.status (200).send ('OK');
     }
 }
 
@@ -709,7 +735,9 @@ module.exports = {
         router.get ('/bids', verify, fetchBidsByOwner);
         router.get ('/claimables', verify, fetchClaimable);
         router.get ('/claimables/count', verify, fetchClaimableCount);
-        router.get ('/test/:evmAddress', test);
+        router.get ('/health', healthCheckLimiter, health);
+        router.get ('/health/statswatch', healthCheckLimiter, statswatchHealth);
+        router.get ('/health/automod', healthCheckLimiter, automodHealth);
         return router;
     },
     getDbCollections,
