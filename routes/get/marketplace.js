@@ -734,7 +734,7 @@ module.exports = {
         router.get ('/claimables', verify, fetchClaimable);
         router.get ('/claimables/count', verify, fetchClaimableCount);
         router.get ('/health', healthCheckLimiter, health);
-        router.get ('/health/statswatch', healthCheckLimiter, statswatchHealth);
+        router.get ('/health/statswatch', healthCheckLimiter, automodHealth);
         router.get ('/health/automod', healthCheckLimiter, automodHealth);
         return router;
     },
