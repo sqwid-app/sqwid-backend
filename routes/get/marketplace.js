@@ -134,6 +134,19 @@ const fetchCollection = async (req, res) => {
     return collectionResponse;
 };
 
+const fetchCollectionStats = async (req, res) => {
+    const { collectionId } = req.params;
+
+    let collection = await firebase.collection ('collections').doc (collectionId).get ();
+
+    if (!collection.exists) return res.status (404).send ({ error: 'Collection does not exist.' });
+    collection = collection.data ();
+    let collectionResponse = collection.stats;
+
+    res?.json (collectionResponse);
+    return collectionResponse;
+};
+
 const fetchPosition = async (req, res) => {
     const { positionId } = req.params;
     try {
@@ -728,6 +741,7 @@ module.exports = {
         router.get ('/by-collection/:collectionId/:type', fetchPositions);
         router.get ('/position/:positionId', fetchPosition);
         router.get ('/collection/:collectionId', fetchCollection);
+        router.get ('/collection/:collectionId/stats', fetchCollectionStats);
         router.get ('/balance', verify, fetchBalance);
         router.get ('/withdrawable', verify, fetchWithdrawable);
         router.get ('/bids', verify, fetchBidsByOwner);
