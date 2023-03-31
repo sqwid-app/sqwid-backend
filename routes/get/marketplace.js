@@ -141,6 +141,7 @@ const fetchCollectionStats = async (req, res) => {
 
     if (!collection.exists) return res.status (404).send ({ error: 'Collection does not exist.' });
     collection = collection.data ();
+    if (!collection.stats) return res.status (404).send ({ error: 'Collection does not have stats.' });
     let collectionResponse = collection.stats;
 
     res?.json (collectionResponse);
