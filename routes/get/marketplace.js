@@ -1,5 +1,6 @@
 const ethers = require ('ethers');
 const { Router } = require ('express');
+const rateLimit = require ('express-rate-limit');
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
@@ -125,8 +126,23 @@ const fetchCollection = async (req, res) => {
             thumb: `https://avatars.dicebear.com/api/identicon/${user.address}.svg`
         },
         thumb: collection.image,
-        description: collection.description
+        description: collection.description,
+        traits: collection.traits
     }
+
+    res?.json (collectionResponse);
+    return collectionResponse;
+};
+
+const fetchCollectionStats = async (req, res) => {
+    const { collectionId } = req.params;
+
+    let collection = await firebase.collection ('collections').doc (collectionId).get ();
+
+    if (!collection.exists) return res.status (404).send ({ error: 'Collection does not exist.' });
+    collection = collection.data ();
+    if (!collection.stats) return res.status (404).send ({ error: 'Collection does not have stats.' });
+    let collectionResponse = collection.stats;
 
     res?.json (collectionResponse);
     return collectionResponse;
@@ -265,6 +281,9 @@ const getNamesByEVMAddresses = async (addresses) => {
     return cached.concat (fResult);
 }
 
+const getItemIdByTokenId = async (tokenId, contract) => {
+}
+
 const buildObjectsFromItems = async (items) => {
     const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
     const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]));
@@ -293,6 +312,99 @@ const buildObjectsFromItems = async (items) => {
         collections: collectionsObject,
         names: namesObj
     }
+}
+
+const getClaimableItems = async (address) => {
+    let q = firebase.collection ('transfers').where ('claimable', '==', true).where ('to', '==', address);
+    const snapshot = await q.get ();
+    let items = {};
+    // reduce to unique items
+    snapshot.forEach (doc => {
+        const data = doc.data ();
+        if (items [data.tokenId]) 
+            items [data.tokenId].amount += data.amount;
+        else
+            items [data.tokenId] = data;
+    });
+    const itemIds = [];
+    // get itemId from tokenId
+    items = Object.values (items);
+    items = await Promise.all (items.map (async (item, i) => {
+        let itemIdQ = firebase.collection ('itemCreations').where ('tokenId', '==', item.tokenId);
+        const itemIdSnapshot = await itemIdQ.get ();
+        if (itemIdSnapshot.empty) {
+            console.log ('No matching documents.');
+            return;
+        }
+        // const itemId = itemIdSnapshot.docs [0]?.data ().itemId;
+        const itemData = itemIdSnapshot.docs [0]?.data ();
+        const { itemId, creator } = itemData;
+        itemIds.push (itemId);
+        return { ...item, itemId, creator };
+    }));
+    items = items.filter (item => approvedIds.find (i => i.id === Number (item.itemId)));
+    // get item data
+    // const collectionsSet = new Set (items.map (item => {
+    //     try {
+    //         return collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]
+    //     } catch (e) {
+    //         return null;
+    //     }
+    // }).filter (i => i));
+    const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]));
+    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.from, item.operator, item.to, item.creator], []));
+    const collectiblesPromise = getDbCollectibles (itemIds);
+    const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
+    const collectionsPromise = getDbCollections (Array.from (collectionsSet));
+    const [collectibles, names, collections] = await Promise.all ([collectiblesPromise, namesPromise, collectionsPromise]);
+    const collectiblesObject = collectibles.reduce ((acc, curr) => {
+        acc [curr.id] = curr;
+        return acc;
+    }, {});
+
+    const collectionsObject = collections.reduce ((acc, collection) => {
+        delete collection.data.traits;
+        return { ...acc, [collection.id]: { ...collection.data, id: collection.id } };
+    }, {});
+    let namesObj;
+    names.forEach (name => {
+        namesObj = { ...namesObj, [name.address]: name.name };
+    });
+    const results = items.map (item => {
+        const meta = collectiblesObject [item.itemId];
+        const collection = collectionsObject [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]];
+        return {
+            ...item,
+            meta,
+            collection,
+            from: {
+                name: namesObj [item.from],
+                address: item.from,
+                avatar: `https://avatars.dicebear.com/api/identicon/${item.from}.svg`
+            },
+            to: {
+                name: namesObj [item.to],
+                address: item.to,
+                avatar: `https://avatars.dicebear.com/api/identicon/${item.to}.svg`
+            },
+            operator: {
+                name: namesObj [item.operator],
+                address: item.operator,
+                avatar: `https://avatars.dicebear.com/api/identicon/${item.operator}.svg`
+            },
+            creator: {
+                name: namesObj [meta.creator],
+                address: meta.creator,
+                avatar: `https://avatars.dicebear.com/api/identicon/${meta.creator}.svg`
+            }
+        }
+    });
+    return results;
+}
+
+const getClaimableItemsCount = async (address) => {
+    let snapshot = await firebase.collection ('transfers').where ('claimable', '==', true).where ('to', '==', address).count ().get ();
+    return snapshot.data ().count;
 }
 
 const grabItemsWithTraits = async (traits, collectionId) => {
@@ -556,6 +668,69 @@ const fetchBidsByOwner = async (req, res) => {
     }
 }
 
+const fetchClaimable = async (req, res) => {
+    const { evmAddress } = req.user;
+    try {
+        const claimable = await getClaimableItems (evmAddress);
+        res.status (200).json (claimable);
+    } catch (err) {
+        console.log (err);
+        res.status (404).json ({
+            error: err.toString ()
+        });
+    }
+}
+
+const fetchClaimableCount = async (req, res) => {
+    const { evmAddress } = req.user;
+    try {
+        const count = await getClaimableItemsCount (evmAddress);
+        res.status (200).json ({
+            count
+        });
+    } catch (err) {
+        console.log (err);
+        res.status (404).json ({
+            error: err.toString ()
+        });
+    }
+}
+
+const healthCheckLimiter = rateLimit ({
+	windowMs: 1 * 60 * 1000, // 1 minute
+	max: 6, // limit each IP to 3 requests per windowMs
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
+const health = async (req, res) => {
+    res.status (200).send ('OK');
+}
+
+const statswatchHealth = async (req, res) => {
+    const { provider } = await getWallet ();
+    const [currentBlockNumber, lastUpdatedBlock] = await Promise.all ([
+        provider.getBlockNumber (),
+        firebase.collection ('statswatch-info').doc ('block').get ()
+    ]);
+    const lastUpdatedBlockNumber = lastUpdatedBlock.data ().lastUpdated;
+    const diff = currentBlockNumber - lastUpdatedBlockNumber;
+    if (diff > 50) {
+        res.status (500).send ('Statswatch is not up to date');
+    } else {
+        res.status (200).send ('OK');
+    }
+}
+
+const automodHealth = async (req, res) => {
+    const lastUpdated = await firebase.collection ('automod-info').doc ('health').get ();
+    const lastUpdatedTime = lastUpdated.data ().lastUpdated;
+    if (Date.now () - (lastUpdatedTime.seconds * 1000) > 1000 * 60 * 10) {
+        res.status (500).send ('Automod is not up to date');
+    } else {
+        res.status (200).send ('OK');
+    }
+}
 
 module.exports = {
     router: () => {
@@ -567,9 +742,15 @@ module.exports = {
         router.get ('/by-collection/:collectionId/:type', fetchPositions);
         router.get ('/position/:positionId', fetchPosition);
         router.get ('/collection/:collectionId', fetchCollection);
+        router.get ('/collection/:collectionId/stats', fetchCollectionStats);
         router.get ('/balance', verify, fetchBalance);
         router.get ('/withdrawable', verify, fetchWithdrawable);
         router.get ('/bids', verify, fetchBidsByOwner);
+        router.get ('/claimables', verify, fetchClaimable);
+        router.get ('/claimables/count', verify, fetchClaimableCount);
+        router.get ('/health', healthCheckLimiter, health);
+        router.get ('/health/statswatch', healthCheckLimiter, automodHealth);
+        router.get ('/health/automod', healthCheckLimiter, automodHealth);
         return router;
     },
     getDbCollections,

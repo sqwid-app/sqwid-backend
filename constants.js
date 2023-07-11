@@ -35,7 +35,11 @@ const networks = {
     }
 }
 
+const TEMP_PATH = "./temp-uploads/";
+
 module.exports = {
     networks,
-    defaultNetwork: process.env.DEFAULT_NETWORK || 'reef_mainnet'
+    defaultNetwork: process.env.DEFAULT_NETWORK || 'reef_mainnet',
+    defaultCollectionId: 'ASwOXeRM5DfghnURP4g2',
+    TEMP_PATH
 }

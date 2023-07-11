@@ -3,3 +3,5 @@
 env_variables.yaml
 yarn.lock
 .VSCodeCounter
+.vscode
+temp-uploads
