@@ -3,7 +3,6 @@ const { Router } = require ('express');
 const rateLimit = require ('express-rate-limit');
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
-const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 const { getWallet } = require ('../../lib/getWallet');
 const getNetwork = require ('../../lib/getNetwork');
 const firebase = require ('../../lib/firebase');
@@ -11,14 +10,13 @@ const { FieldPath } = require ('firebase-admin').firestore;
 const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cacheCollections, fetchCachedNames, cacheNames } = require('../../lib/caching');
 const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-let provider, utilityContract, marketplaceContract, collectibleContract;
+const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery } = require('../../lib/graphqlApi');
+let provider, utilityContract, collectibleContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
-    utilityContract = UtilityContract (provider);
-    marketplaceContract = MarketplaceContract (provider);
+    utilityContract = UtilityContract (provider); // TODO Query from squid
     collectibleContract = CollectibleContract (provider);
     console.log ('Wallet loaded.');
 });
@@ -55,7 +53,6 @@ const sliceIntoChunks = (arr, chunkSize) => {
 }
 
 const setBoolean = (packedBools, boolNumber, value) => value ? packedBools | 1 << boolNumber : packedBools & ~(1) << boolNumber;
-const maxOfArray = arr => arr.reduce ((a, b) => Math.max (a, b), -Infinity);
 const minOfArray = arr => arr.reduce ((a, b) => Math.min (a, b), Infinity);
 
 const getBoolsArray = arr => {
@@ -154,7 +151,6 @@ const fetchPosition = async (req, res) => {
         const item = await utilityContract.fetchPosition (positionId);
 
         if (!Number (item.amount)) return res?.status (404).send ({ error: 'Position does not exist.' });
-        // const collectibleContract = CollectibleContract (provider, item.item.nftContract);
         
         let collectibleData = await getDbCollectibles ([Number (item.item.itemId)]);
 
@@ -281,9 +277,6 @@ const getNamesByEVMAddresses = async (addresses) => {
     return cached.concat (fResult);
 }
 
-const getItemIdByTokenId = async (tokenId, contract) => {
-}
-
 const buildObjectsFromItems = async (items) => {
     const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
     const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]));
@@ -315,44 +308,29 @@ const buildObjectsFromItems = async (items) => {
 }
 
 const getClaimableItems = async (address) => {
-    let q = firebase.collection ('transfers').where ('claimable', '==', true).where ('to', '==', address);
-    const snapshot = await q.get ();
+    let claimableItems = await firebase.collection ('claims').where ('claimed', '==', false).where ('owner', '==', address). get();
     let items = {};
-    // reduce to unique items
-    snapshot.forEach (doc => {
+    claimableItems.forEach (doc => {
         const data = doc.data ();
-        if (items [data.tokenId]) 
-            items [data.tokenId].amount += data.amount;
-        else
-            items [data.tokenId] = data;
+        items [data.nftId].amount = data.amount;
     });
     const itemIds = [];
     // get itemId from tokenId
     items = Object.values (items);
     items = await Promise.all (items.map (async (item, i) => {
-        let itemIdQ = firebase.collection ('itemCreations').where ('tokenId', '==', item.tokenId);
-        const itemIdSnapshot = await itemIdQ.get ();
-        if (itemIdSnapshot.empty) {
-            console.log ('No matching documents.');
+        const itemRes = await doQuery (itemByNftIdQuery (item.nftId));
+        if (!itemRes) {
+            console.log ('Item does not exist in marketplace.');
             return;
         }
-        // const itemId = itemIdSnapshot.docs [0]?.data ().itemId;
-        const itemData = itemIdSnapshot.docs [0]?.data ();
-        const { itemId, creator } = itemData;
-        itemIds.push (itemId);
-        return { ...item, itemId, creator };
+        const { id, creator } = itemRes;
+        itemIds.push (id);
+        return { ...item, itemId: id, creator };
     }));
     items = items.filter (item => approvedIds.find (i => i.id === Number (item.itemId)));
-    // get item data
-    // const collectionsSet = new Set (items.map (item => {
-    //     try {
-    //         return collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]
-    //     } catch (e) {
-    //         return null;
-    //     }
-    // }).filter (i => i));
+
     const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.itemId)).collection]));
-    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.from, item.operator, item.to, item.creator], []));
+    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.from, item.creator], []));
     const collectiblesPromise = getDbCollectibles (itemIds);
     const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
     const collectionsPromise = getDbCollections (Array.from (collectionsSet));
@@ -382,16 +360,6 @@ const getClaimableItems = async (address) => {
                 address: item.from,
                 avatar: `https://avatars.dicebear.com/api/identicon/${item.from}.svg`
             },
-            to: {
-                name: namesObj [item.to],
-                address: item.to,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.to}.svg`
-            },
-            operator: {
-                name: namesObj [item.operator],
-                address: item.operator,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.operator}.svg`
-            },
             creator: {
                 name: namesObj [meta.creator],
                 address: meta.creator,
@@ -403,7 +371,7 @@ const getClaimableItems = async (address) => {
 }
 
 const getClaimableItemsCount = async (address) => {
-    let snapshot = await firebase.collection ('transfers').where ('claimable', '==', true).where ('to', '==', address).count ().get ();
+    let snapshot = await firebase.collection ('claims').where ('claimed', '==', false).where ('owner', '==', address).count ().get ();
     return snapshot.data ().count;
 }
 
@@ -603,11 +571,9 @@ const fetchPositions = async (req, res) => {
 
 const fetchBalance = async (req, res) => {
     const { address } = req.user;
-    const { provider } = await getWallet ();
 
     try {
-        let { data: { free: bn } } = await provider.api.query.system.account (address);
-        let balance = (+ethers.utils.formatEther (bn.toString ())).toFixed (2);
+        let balance = await doQuery (balanceQuery (address));
     
         res.status (200).json ({
             balance
@@ -624,9 +590,9 @@ const fetchWithdrawable = async (req, res) => {
     let { evmAddress, address } = req.user;
     try {
         if (!evmAddress) evmAddress = await getEVMAddress (address);
-        const balance = await marketplaceContract.addressBalance (evmAddress);
+        const balance = await doQuery (withdrawableQuery (evmAddress));
         res.status (200).json ({
-            balance: (+ethers.utils.formatEther (balance.toString ())).toFixed (2)
+            balance
         });
     } catch (err) {
         console.log (err);

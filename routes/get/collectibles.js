@@ -50,8 +50,8 @@ const all = async (req, res) => {
 module.exports = () => {
     const router = Router ();
 
-    router.get ('/creator/:address', byCreator);
-    router.get ('/all', all);
+    // router.get ('/creator/:address', byCreator);
+    // router.get ('/all', all);
     
     return router;
 }

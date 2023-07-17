@@ -3,28 +3,23 @@ const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
 const ethers = require ('ethers');
 const multer = require ('multer');
-// const { NFTStorage, File } = require ('nft.storage');
 const getNetwork = require('../../lib/getNetwork');
-// const { FieldValue } = require ('firebase-admin').firestore;
 
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
-// const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
-const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const cors = require ('cors');
 const { getWallet } = require('../../lib/getWallet');
-const { getCloudflareURL, getInfuraURL } = require('../../lib/getIPFSURL');
+const { getInfuraURL } = require('../../lib/getIPFSURL');
 const axios = require ('axios');
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-// const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
-const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 
 const { syncTraitsToCollection } = require('../../lib/synctraits');
 const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
 const { initIpfs } = require('../../lib/IPFS');
+const { doQuery, itemQuery } = require('../../lib/graphqlApi');
 // 
 // import { create as ipfsClient } from 'ipfs-http-client';
 
@@ -122,7 +117,6 @@ let sync = async (req, res, next) => {
 
 const verifyItem = async (req, res, next) => {
     const { provider } = await getWallet ();
-    const marketContract = await utilityContract (provider);
     const tokenContract = await collectibleContract (provider);
     const { id, collection } = req.body;
     const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';
@@ -137,7 +131,7 @@ const verifyItem = async (req, res, next) => {
     // verify user owns collection
     if (collectionDoc.length && (collectionDoc [0].data.owner === creator || collectionId === "ASwOXeRM5DfghnURP4g2")) {
         try {
-            const item = await marketContract.fetchItem (id);
+            const item = await doQuery (itemQuery (id));
             let ipfsURI;
             if (item.creator === creator) {
                 let meta = {};
@@ -168,7 +162,7 @@ const verifyItem = async (req, res, next) => {
                 await Promise.all ([
                     firebase.collection ('collectibles').add ({
                         id,
-                        tokenId: item.tokenId.toNumber (),
+                        tokenId: item.tokenId,
                         uri: ipfsURI,
                         collectionId,
                         createdAt: new Date (),
