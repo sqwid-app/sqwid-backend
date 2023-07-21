@@ -3,7 +3,7 @@ const { doQuery, salesQuery, lastSaleQuery, itemQuery, tokenHoldersCountQuery } 
 
 const grabCollectibleOwners = async id => {
     const { tokenId, nftContract } = await doQuery (itemQuery (id));
-    return await  doQuery (tokenHoldersCountQuery (tokenId, nftContract));
+    return await doQuery (tokenHoldersCountQuery (tokenId, nftContract));
 }
 
 const computeVolumeFromSales = sales => {

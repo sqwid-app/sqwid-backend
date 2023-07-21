@@ -5,6 +5,7 @@ const networks = {
             marketplace: '0xCA864F5BBc03072F70620A359D8CD6f272665DC4',
 			erc1155: '0x02fA6e000B4Ba18fbd17552E5c5cf91b03F2e542',
 			utility: '0x5B74AcCeB8260B4ae60CF521F6b70571c453cae6',
+            multicall: '0x922E03189ABDAC04e5BB7c6C53Abca94F8079345'
         },
         typesense: {
             collections: {
@@ -24,6 +25,7 @@ const networks = {
             marketplace: "0xB13Be9656B243600C86922708C20606f5EA89218",
 			erc1155: "0x0601202b75C96A61CDb9A99D4e2285E43c6e60e4",
 			utility: "0xffb12A5f69AFBD58Dc49b4AE9044D8F20D131733",
+            multicall: "0x137A7237e2a5f7f2eEE1C1471fbb26d0be8Fcc60"
         },
         typesense: {
             collections: {

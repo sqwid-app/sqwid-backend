@@ -1,23 +1,26 @@
 const ethers = require ('ethers');
 const { Router } = require ('express');
 const rateLimit = require ('express-rate-limit');
-const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
+const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
+const multicallContractABI = require ('../../contracts/Multicall3').ABI;
 const { getWallet } = require ('../../lib/getWallet');
 const getNetwork = require ('../../lib/getNetwork');
 const firebase = require ('../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
 const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cacheCollections, fetchCachedNames, cacheNames } = require('../../lib/caching');
-const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const MarketplaceContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['multicall'], multicallContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery } = require('../../lib/graphqlApi');
-let provider, utilityContract, collectibleContract;
+const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionQuery, positionsByStateQuery } = require('../../lib/graphqlApi');
+let provider, collectibleContract, marketplaceContract, multicallContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
-    utilityContract = UtilityContract (provider); // TODO Query from squid
     collectibleContract = CollectibleContract (provider);
+    marketplaceContract = MarketplaceContract (provider);
+    multicallContract = MulticallContract (provider);
     console.log ('Wallet loaded.');
 });
 let collectionsOfApprovedItems = {};
@@ -52,57 +55,125 @@ const sliceIntoChunks = (arr, chunkSize) => {
     return res;
 }
 
-const setBoolean = (packedBools, boolNumber, value) => value ? packedBools | 1 << boolNumber : packedBools & ~(1) << boolNumber;
 const minOfArray = arr => arr.reduce ((a, b) => Math.min (a, b), Infinity);
 
-const getBoolsArray = arr => {
-    const max = arr [arr.length - 1];
-    let boolArray = new Array (max + 1).fill (false);
-    arr.forEach (i => boolArray [i] = true);
-    let packed = [];
-    for (let i = max; i > 0; i--) {
-        packed [(i / 8) | 0] = setBoolean (packed [(i / 8) | 0] || 0, (i + 0) % 8, boolArray [i])
-    }
-    return packed;
-}
-
-const getSaleData = item => {
+const getAuctionData = async (positionId) => {
+    const auctionData = await marketplaceContract.fetchAuctionData (positionId);
     return {
-        price: Number (item.price)
-    }
-}
-
-const getAuctionData = (item, names) => {
-    return {
-        deadline: Number (item.auctionData.deadline),
-        minBid: Number (item.auctionData.minBid),
-        highestBid: Number (item.auctionData.highestBid),
+        deadline: Number (auctionData.deadline),
+        minBid: Number (auctionData.minBid),
+        highestBid: Number (auctionData.highestBid),
         highestBidder: {
-            address: item.auctionData.highestBidder,
-            name: names [item.auctionData.highestBidder] || item.auctionData.highestBidder
-        },
-    }
-}
-
-const getRaffleData = item => {
-    return {
-        deadline: Number (item.raffleData.deadline),
-        totalValue: Number (item.raffleData.totalValue) * (10 ** 18),
-        totalAddresses: Number (item.raffleData.totalAddresses),
-    }
-}
-
-const getLoanData = (item, names) => {
-    return {
-        deadline: Number (item.loanData.deadline),
-        loanAmount: Number (item.loanData.loanAmount),
-        feeAmount: Number (item.loanData.feeAmount),
-        numMinutes: Number (item.loanData.numMinutes),
-        lender: {
-            address: item.loanData.lender,
-            name: names [item.loanData.lender] || item.loanData.lender
+            address: auctionData.highestBidder,
+            name: auctionData.highestBidder
         }
     }
+}
+
+const getAuctionDatas = async (positionIds) => {
+    const calls = positionIds.map((positionId) => ({
+        target: marketplaceContract.address,
+        allowFailure: true,
+        callData: marketplaceContract.interface.encodeFunctionData('fetchAuctionData', [positionId]),
+    }));
+
+    const response = await multicallContract.aggregate3.staticCall (calls);
+
+    const auctionDatas = new Map ();
+    const highestBidders = [];
+    response.forEach(({ success, returnData }, i) => {
+        if (!success) throw new Error(`Failed to get auction data for ${positionIds[i]}`);
+        const auctionData = marketplaceContract.interface.decodeFunctionResult('fetchAuctionData', returnData);
+        auctionDatas.set(positionIds[i], {
+            deadline: Number (auctionData.deadline),
+            minBid: Number (auctionData.minBid),
+            highestBid: Number (auctionData.highestBid),
+            highestBidder: {
+                address: auctionData.highestBidder,
+                name: auctionData.highestBidder
+            }
+        });
+        highestBidders.push (auctionData.highestBidder);
+    });
+
+    return { auctionDatas, highestBidders };
+}
+
+
+const getRaffleData = async (positionId) => {
+    const raffleData = await marketplaceContract.fetchRaffleData (positionId);
+    return {
+        deadline: Number (raffleData.deadline),
+        totalValue: Number (raffleData.totalValue) * (10 ** 18),
+        totalAddresses: Number (raffleData.totalAddresses),
+    }
+} 
+
+const getRaffleDatas = async (positionIds) => {
+    const calls = positionIds.map((positionId) => ({
+        target: marketplaceContract.address,
+        allowFailure: true,
+        callData: marketplaceContract.interface.encodeFunctionData('fetchRaffleData', [positionId]),
+    }));
+
+    const response = await multicallContract.aggregate3.staticCall (calls);
+
+    const raffleDatas = new Map ();
+    response.forEach(({ success, returnData }, i) => {
+        if (!success) throw new Error(`Failed to get raffle data for ${positionIds[i]}`);
+        const raffleData = marketplaceContract.interface.decodeFunctionResult('fetchRaffleData', returnData);
+        raffleDatas.set(positionIds[i], {
+            deadline: Number (raffleData.deadline),
+            totalValue: Number (raffleData.totalValue) * (10 ** 18),
+            totalAddresses: Number (raffleData.totalAddresses),
+        })
+    });
+
+    return { raffleDatas };
+}
+
+const getLoanData = async (positionId) => {
+    const loanData = await marketplaceContract.fetchLoanData (positionId);
+    return {
+        deadline: Number (loanData.deadline),
+        loanAmount: Number (loanData.loanAmount),
+        feeAmount: Number (loanData.feeAmount),
+        numMinutes: Number (loanData.numMinutes),
+        lender: {
+            address: loanData.lender,
+            name: loanData.lender
+        }
+    }
+}
+
+const getLoanDatas = async (positionIds) => {
+    const calls = positionIds.map((positionId) => ({
+        target: marketplaceContract.address,
+        allowFailure: true,
+        callData: marketplaceContract.interface.encodeFunctionData('fetchLoanData', [positionId]),
+    }));
+
+    const response = await multicallContract.aggregate3.staticCall (calls);
+
+    const loanDatas = new Map ();
+    const lenders = [];
+    response.forEach(({ success, returnData }, i) => {
+        if (!success) throw new Error(`Failed to get loan data for ${positionIds[i]}`);
+        const loanData = marketplaceContract.interface.decodeFunctionResult('fetchLoanData', returnData);
+        loanDatas.set(positionIds[i], {
+            deadline: Number (loanData.deadline),
+            loanAmount: Number (loanData.loanAmount),
+            feeAmount: Number (loanData.feeAmount),
+            numMinutes: Number (loanData.numMinutes),
+            lender: {
+                address: loanData.lender,
+                name: loanData.lender
+            }
+        });
+        lenders.push (loanData.lender);
+    });
+
+    return { loanDatas, lenders };
 }
 
 const fetchCollection = async (req, res) => {
@@ -148,20 +219,37 @@ const fetchCollectionStats = async (req, res) => {
 const fetchPosition = async (req, res) => {
     const { positionId } = req.params;
     try {
-        const item = await utilityContract.fetchPosition (positionId);
+        const position = await doQuery (positionQuery (positionId));
 
-        if (!Number (item.amount)) return res?.status (404).send ({ error: 'Position does not exist.' });
+        if (!position.amount) return res?.status (404).send ({ error: 'Position does not exist.' });
         
-        let collectibleData = await getDbCollectibles ([Number (item.item.itemId)]);
+        let collectibleData = await getDbCollectibles ([position.itemId]);
 
         if (!collectibleData.length) throw new Error (`Collectible does not exist.`);
         
         collectibleData = collectibleData [0];
 
+        const namesSearch = [position.itemCreator, position.owner, ...(collectibleData.hearts || [])];
+        let saleData = null;
+        let auctionData = null;
+        let raffleData = null;
+        let loanData = null;
+        if (position.state === 1) {
+            saleData = { price: position.price };
+        } else if (position.state === 2) {
+            auctionData = await getAuctionData (positionId);
+            namesSearch.push (auctionData.highestBidder.address);
+        } else if (position.state === 3) {
+            raffleData = await getRaffleData (positionId);
+        } else if (position.state === 4) {
+            loanData = await getLoanData (positionId);
+            namesSearch.push (loanData.lender.address);
+        }
+
         const collectionPromise = getDbCollections ([collectibleData.collectionId]);
-        const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([item.item.creator, item.owner, item.auctionData.highestBidder, item.loanData.lender, ...(collectibleData.hearts || [])])));
-        const itemMetaPromise = collectibleContract.uri (item.item.tokenId);
-        const itemRoyaltiesPromise = collectibleContract.royaltyInfo (item.item.tokenId, 100);
+        const namesPromise = getNamesByEVMAddresses (Array.from (new Set (namesSearch)));
+        const itemMetaPromise = collectibleContract.uri (position.tokenId);
+        const itemRoyaltiesPromise = collectibleContract.royaltyInfo (position.tokenId, 100);
         const [collection, names, itemMeta, itemRoyalty] = await Promise.all ([collectionPromise, namesPromise, itemMetaPromise, itemRoyaltiesPromise]);
 
         let namesObj = {};
@@ -169,11 +257,19 @@ const fetchPosition = async (req, res) => {
             namesObj = { ...namesObj, [name.address]: name.name };
         });
 
+        if (position.state === 2) {
+            const highestBidderName = names [auctionData.highestBidder.address];
+            auctionData.highestBidder.name = highestBidderName || auctionData.highestBidder.address;
+        } else if (position.state === 4) {
+            const lenderName = names [loanData.lender.address];
+            loanData.lender.name = lenderName || loanData.lender.address;
+        }
+
         const itemObject = {
             approved: collectibleData.approved,
-            positionId: Number (item.positionId),
-            itemId: Number (item.item.itemId),
-            tokenId: Number (item.item.tokenId),
+            positionId: positionId,
+            itemId: position.itemId,
+            tokenId: position.tokenId,
             hearts: collectibleData.hearts?.map (usr => ({
                 name: namesObj [usr],
                 address: usr
@@ -183,24 +279,24 @@ const fetchPosition = async (req, res) => {
                 id: collection [0].id
             },
             creator: {
-                address: item.item.creator,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                name: namesObj [item.item.creator] || item.item.creator,
+                address: position.itemCreator,
+                avatar: `https://avatars.dicebear.com/api/identicon/${position.itemCreator}.svg`,
+                name: namesObj [position.itemCreator] || position.itemCreator,
                 royalty: itemRoyalty.royaltyAmount.toNumber ()
             },
             owner: {
-                address: item.owner,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                name: namesObj [item.owner] || item.owner
+                address: position.owner,
+                avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                name: namesObj [position.owner] || position.owner
             },
-            amount: Number (item.amount),
-            sale: item.state === 1 ? getSaleData (item) : null,
-            auction: item.state === 2 ? getAuctionData (item, namesObj) : null,
-            raffle: item.state === 3 ? getRaffleData (item) : null,
-            loan: item.state === 4 ? getLoanData (item, namesObj) : null,
-            marketFee: Number (item.marketFee),
-            state: item.state,
-            meta: { ...collectibleData.meta, uri: itemMeta, tokenContract: item.item.nftContract },
+            amount: position.amount,
+            sale: saleData,
+            auction: auctionData,
+            raffle: raffleData,
+            loan: loanData,
+            marketFee: position.marketFee,
+            state: position.state,
+            meta: { ...collectibleData.meta, uri: itemMeta, tokenContract: position.nftContract },
         }
         res?.status (200).json (itemObject);
         return itemObject;
@@ -212,7 +308,6 @@ const fetchPosition = async (req, res) => {
         return null;
     }
 }
-
 
 const getDbCollectibles = async (items) => {
     // get from cache
@@ -277,10 +372,10 @@ const getNamesByEVMAddresses = async (addresses) => {
     return cached.concat (fResult);
 }
 
-const buildObjectsFromItems = async (items) => {
-    const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
-    const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]));
-    const addresses = new Set (items.reduce ((acc, item) => [...acc, item.owner, item.item.creator, item.loanData.lender, item.auctionData.highestBidder], []));
+const buildObjectsFromPositions = async (positions) => {
+    const itemIds = Array.from (new Set (positions.map (position => position.itemId)));
+    const collectionsSet = new Set (positions.map (position => collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]));
+    const addresses = new Set (positions.reduce ((acc, position) => [...acc, position.owner, position.itemCreator], [])); // TODO: item.loanData.lender, item.auctionData.highestBidder
     const collectiblesPromise = getDbCollectibles (itemIds);
     const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
     const collectionsPromise = getDbCollections (Array.from (collectionsSet));
@@ -391,53 +486,36 @@ const grabItemsWithTraits = async (traits, collectionId) => {
             ids.add (snapshot.data ().id)
         });
     });
-    return Array.from (ids).sort ((a, b) => a - b);
+    return ids;
 }
 
-const constructAllowedBytes = (collectionId = null, ids = []) => {
-    let allowedBytes = [];
-    if (ids.length) allowedBytes = getBoolsArray (ids);
-    else if (collectionId) {
-        let idsInCollection = [];
-        for (let i = 0; i < approvedIds.length; i++) {
-            if (collectionsOfApprovedItems [approvedIds [i].collection] === collectionId) {
-                idsInCollection.push (approvedIds [i].id);
-            }
-        }
-        if (idsInCollection.length > 0) allowedBytes = getBoolsArray (idsInCollection);
-        else return [];
-    } else {
-        if (approvedIds.length > 0) allowedBytes = getBoolsArray (approvedIds.map (item => item.id));
-        else return [];
-    }
-    return allowedBytes;
-}
-
-const fetchSummary = async (req, res) => {
+// TODO
+const fetchSummary = async (_req, res) => {
     try {
-        let allowedBytes = constructAllowedBytes ();
-        if (!allowedBytes.length) return res.status (200).json ({
+        const searchItemIds = new Set (approvedIds.map (item => item.id));
+
+        if (!Array.from (searchItemIds).length) return res.status (200).json ({
             sale: [],
             auction: [],
             raffle: [],
             loan: []
         });
-        const allRawItems = await Promise.all (
+        const allRawPositions = await Promise.all (
             new Array (4)
             .fill (null)
-            .map ((_, i) => utilityContract.fetchPositions (
+            .map ((_, i) => doQuery (positionsByStateQuery (
                 i + 1, // state
                 ethers.constants.AddressZero, // owner
                 0, // startFrom
                 4, // limit
-                allowedBytes
-            ))
+                Array.from (searchItemIds)
+            )))
         );
 
-        const allRawItemsFlat = allRawItems.reduce ((acc, curr) => [...acc, ...curr], []);
-        let rawItems = allRawItemsFlat.filter (item => Number (item.amount) > 0);
+        const allRawPositionsFlat = allRawPositions.reduce ((acc, curr) => [...acc, ...curr], []);
+        const rawPositions = allRawPositionsFlat.filter (position => position.amount > 0);
 
-        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
+        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions);
 
         let newObject = {
             sale: [],
@@ -446,32 +524,32 @@ const fetchSummary = async (req, res) => {
             loan: []
         }
         let keys = Object.keys (newObject);
-        rawItems.forEach (item => {
-            const itemObject = {
-                positionId: Number (item.positionId),
-                itemId: Number (item.item.itemId),
-                tokenId: Number (item.item.tokenId),
-                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]],
+        rawPositions.forEach (position => {
+            const positionObject = {
+                positionId: position.positionId,
+                itemId: position.itemId,
+                tokenId: position.tokenId,
+                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
-                    address: item.item.creator,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                    name: names [item.item.creator] || item.item.creator
+                    address: position.itemCreator,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.itemCreator}.svg`,
+                    name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
-                    address: item.owner,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                    name: names [item.owner] || item.owner
+                    address: position.owner,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                    name: names [position.owner] || position.owner
                 },
-                amount: Number (item.amount),
-                sale: item.state === 1 ? getSaleData (item) : null,
-                auction: item.state === 2 ? getAuctionData (item, names) : null,
-                raffle: item.state === 3 ? getRaffleData (item) : null,
-                loan: item.state === 4 ? getLoanData (item, names) : null,
-                marketFee: Number (item.marketFee),
-                state: item.state,
-                meta: collectibles [item.item.itemId.toString ()].meta,
+                amount: position.amount,
+                sale: item.state === 1 ? { price: position.price } : null,
+                auction: item.state === 2 ? getAuctionData (item, names) : null, // TODO
+                raffle: item.state === 3 ? getRaffleData (item) : null, // TODO
+                loan: item.state === 4 ? getLoanData (item, names) : null, // TODO
+                marketFee: position.marketFee,
+                state: position.state,
+                meta: collectibles [position.itemId.toString ()].meta,
             }
-            newObject [keys [item.state - 1]].push (itemObject);
+            newObject [keys [position.state - 1]].push (positionObject);
         });
 
         res.status (200).json ({
@@ -505,16 +583,21 @@ const fetchFeatured = async (req, res) => {
 
 const fetchPositions = async (req, res) => {
     const { type, ownerAddress, collectionId } = req.params;
+    const state = Number(type);
     const startFrom = Number (req.query.startFrom) || 0;
     const limit = Math.min (Number (req.query.limit), 100) || 10;
     const { traits } = req.query;
-    let specificIds = [];
+    let searchItemIds = new Set ();
     try {
         if (traits && Object.keys (traits).length) {
-            specificIds = await grabItemsWithTraits (traits, collectionId);
+            searchItemIds = await grabItemsWithTraits (traits, collectionId);
         }
-        let allowedBytes = constructAllowedBytes (collectionId, specificIds);
-        if (!allowedBytes.length) return res.status (200).json ({
+        for (let i = 0; i < approvedIds.length; i++) {
+            if (collectionsOfApprovedItems [approvedIds [i].collection] === collectionId) {
+                searchItemIds.add (approvedIds [i].id);
+            }
+        }
+        if (!Array.from (searchItemIds).length) return res.status (200).json ({
             items: [],
             pagination: {
                 lowest: 0,
@@ -522,42 +605,47 @@ const fetchPositions = async (req, res) => {
             }
         });
 
-        const allRawItems = await utilityContract.fetchPositions (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, startFrom ? Math.min (limit, startFrom) : limit, allowedBytes);
-        let rawItems = allRawItems.filter (item => Number (item.positionId) > 0);
+        const rawPositions = await doQuery (positionsByStateQuery (
+            state,
+            ownerAddress || ethers.constants.AddressZero,
+            startFrom,
+            startFrom ? Math.min (limit, startFrom) : limit,
+            Array.from (searchItemIds)
+        ));
 
-        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
-        const items = [];
-        for (let i = 0; i < rawItems.length; i++) {
-            const item = rawItems [i];
-            items.push ({
-                positionId: Number (item.positionId),
-                itemId: Number (item.item.itemId),
-                tokenId: Number (item.item.tokenId),
-                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]],
+        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions);
+        const positions = [];
+        for (let i = 0; i < rawPositions.length; i++) {
+            const position = rawPositions [i];
+            positions.push ({
+                positionId: position.positionId,
+                itemId: position.itemId,
+                tokenId: position.tokenId,
+                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
-                    address: item.item.creator,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                    name: names [item.item.creator] || item.item.creator
+                    address: position.itemCreator,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.itemCreator}.svg`,
+                    name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
-                    address: item.owner,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                    name: names [item.owner] || item.owner
+                    address: position.owner,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                    name: names [position.owner] || position.owner
                 },
-                amount: Number (item.amount),
-                sale: item.state === 1 ? getSaleData (item) : null,
-                auction: item.state === 2 ? getAuctionData (item, names) : null,
-                raffle: item.state === 3 ? getRaffleData (item) : null,
-                loan: item.state === 4 ? getLoanData (item, names) : null,
-                marketFee: Number (item.marketFee),
-                state: item.state,
-                meta: collectibles [item.item.itemId.toString ()].meta,
+                amount: position.amount,
+                sale: state === 1 ? { price: position.price } : null,
+                auction: state === 2 ? getAuctionData (position, names) : null, // TODO
+                raffle: state === 3 ? getRaffleData (position) : null, // TODO
+                loan: state === 4 ? getLoanData (position, names) : null, // TODO
+                marketFee: position.marketFee,
+                state: state,
+                meta: collectibles [position.itemId.toString ()].meta,
             });
         }
         res.status (200).json ({
-            items,
+            items: positions,
             pagination: {
-                lowest: minOfArray (items.map (item => item.positionId)),
+                lowest: minOfArray (positions.map (position => position.positionId)),
                 limit
             }
         });
@@ -571,10 +659,8 @@ const fetchPositions = async (req, res) => {
 
 const fetchBalance = async (req, res) => {
     const { address } = req.user;
-
     try {
         let balance = await doQuery (balanceQuery (address));
-    
         res.status (200).json ({
             balance
         });
@@ -607,6 +693,7 @@ const fetchBidsByOwner = async (req, res) => {
     const page = Number (req.query.page) || 1;
     const pageSize = Number (req.query.pageSize) || 10;
     try {
+        // TODO
         const response = await utilityContract.fetchAddressBidsPage (evmAddress, pageSize, page, true);
         const metas = await getDbCollectibles (response.bids.map (item => item.auction.item.itemId));
         let bids = response.bids.map ((item, i) => {
@@ -671,21 +758,6 @@ const healthCheckLimiter = rateLimit ({
 
 const health = async (req, res) => {
     res.status (200).send ('OK');
-}
-
-const statswatchHealth = async (req, res) => {
-    const { provider } = await getWallet ();
-    const [currentBlockNumber, lastUpdatedBlock] = await Promise.all ([
-        provider.getBlockNumber (),
-        firebase.collection ('statswatch-info').doc ('block').get ()
-    ]);
-    const lastUpdatedBlockNumber = lastUpdatedBlock.data ().lastUpdated;
-    const diff = currentBlockNumber - lastUpdatedBlockNumber;
-    if (diff > 50) {
-        res.status (500).send ('Statswatch is not up to date');
-    } else {
-        res.status (200).send ('OK');
-    }
 }
 
 const automodHealth = async (req, res) => {
