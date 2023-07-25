@@ -77,13 +77,13 @@ const getAuctionDatas = async (positionIds) => {
         callData: marketplaceContract.interface.encodeFunctionData('fetchAuctionData', [positionId]),
     }));
 
-    const response = await multicallContract.aggregate3.staticCall (calls);
+    const response = await multicallContract.callStatic.aggregate3 (calls);
 
     const auctionDatas = new Map ();
     const highestBidders = [];
     response.forEach(({ success, returnData }, i) => {
         if (!success) throw new Error(`Failed to get auction data for ${positionIds[i]}`);
-        const auctionData = marketplaceContract.interface.decodeFunctionResult('fetchAuctionData', returnData);
+        const auctionData = marketplaceContract.interface.decodeFunctionResult('fetchAuctionData', returnData)[0];
         auctionDatas.set(positionIds[i], {
             deadline: Number (auctionData.deadline),
             minBid: Number (auctionData.minBid),
@@ -116,12 +116,12 @@ const getRaffleDatas = async (positionIds) => {
         callData: marketplaceContract.interface.encodeFunctionData('fetchRaffleData', [positionId]),
     }));
 
-    const response = await multicallContract.aggregate3.staticCall (calls);
+    const response = await multicallContract.callStatic.aggregate3 (calls);
 
     const raffleDatas = new Map ();
     response.forEach(({ success, returnData }, i) => {
         if (!success) throw new Error(`Failed to get raffle data for ${positionIds[i]}`);
-        const raffleData = marketplaceContract.interface.decodeFunctionResult('fetchRaffleData', returnData);
+        const raffleData = marketplaceContract.interface.decodeFunctionResult('fetchRaffleData', returnData)[0];
         raffleDatas.set(positionIds[i], {
             deadline: Number (raffleData.deadline),
             totalValue: Number (raffleData.totalValue) * (10 ** 18),
@@ -153,13 +153,13 @@ const getLoanDatas = async (positionIds) => {
         callData: marketplaceContract.interface.encodeFunctionData('fetchLoanData', [positionId]),
     }));
 
-    const response = await multicallContract.aggregate3.staticCall (calls);
+    const response = await multicallContract.callStatic.aggregate3 (calls);
 
     const loanDatas = new Map ();
     const lenders = [];
     response.forEach(({ success, returnData }, i) => {
         if (!success) throw new Error(`Failed to get loan data for ${positionIds[i]}`);
-        const loanData = marketplaceContract.interface.decodeFunctionResult('fetchLoanData', returnData);
+        const loanData = marketplaceContract.interface.decodeFunctionResult('fetchLoanData', returnData)[0];
         loanDatas.set(positionIds[i], {
             deadline: Number (loanData.deadline),
             loanAmount: Number (loanData.loanAmount),
@@ -372,10 +372,10 @@ const getNamesByEVMAddresses = async (addresses) => {
     return cached.concat (fResult);
 }
 
-const buildObjectsFromPositions = async (positions) => {
+const buildObjectsFromPositions = async (positions, additionalNamesSearch) => {
     const itemIds = Array.from (new Set (positions.map (position => position.itemId)));
     const collectionsSet = new Set (positions.map (position => collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]));
-    const addresses = new Set (positions.reduce ((acc, position) => [...acc, position.owner, position.itemCreator], [])); // TODO: item.loanData.lender, item.auctionData.highestBidder
+    const addresses = new Set (positions.reduce ((acc, position) => [...acc, position.owner, position.itemCreator], additionalNamesSearch));
     const collectiblesPromise = getDbCollectibles (itemIds);
     const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
     const collectionsPromise = getDbCollections (Array.from (collectionsSet));
@@ -489,7 +489,6 @@ const grabItemsWithTraits = async (traits, collectionId) => {
     return ids;
 }
 
-// TODO
 const fetchSummary = async (_req, res) => {
     try {
         const searchItemIds = new Set (approvedIds.map (item => item.id));
@@ -515,7 +514,7 @@ const fetchSummary = async (_req, res) => {
         const allRawPositionsFlat = allRawPositions.reduce ((acc, curr) => [...acc, ...curr], []);
         const rawPositions = allRawPositionsFlat.filter (position => position.amount > 0);
 
-        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions);
+        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions, []);
 
         let newObject = {
             sale: [],
@@ -525,6 +524,14 @@ const fetchSummary = async (_req, res) => {
         }
         let keys = Object.keys (newObject);
         rawPositions.forEach (position => {
+            if (position.state === 2) {
+                const highestBidderName = names [position.auctionData.highestBidder.address];
+                position.auctionData.highestBidder.name = highestBidderName || position.auctionData.highestBidder.address;
+            } else if (position.state === 4) {
+                const lenderName = names [position.loanData.lender.address];
+                position.loanData.lender.name = lenderName || loanData.lender.address;
+            }
+
             const positionObject = {
                 positionId: position.positionId,
                 itemId: position.itemId,
@@ -541,10 +548,10 @@ const fetchSummary = async (_req, res) => {
                     name: names [position.owner] || position.owner
                 },
                 amount: position.amount,
-                sale: item.state === 1 ? { price: position.price } : null,
-                auction: item.state === 2 ? getAuctionData (item, names) : null, // TODO
-                raffle: item.state === 3 ? getRaffleData (item) : null, // TODO
-                loan: item.state === 4 ? getLoanData (item, names) : null, // TODO
+                sale: position.saleData,
+                auction: position.auctionData,
+                raffle: position.raffleData,
+                loan: position.loanData,
                 marketFee: position.marketFee,
                 state: position.state,
                 meta: collectibles [position.itemId.toString ()].meta,
@@ -605,7 +612,7 @@ const fetchPositions = async (req, res) => {
             }
         });
 
-        const rawPositions = await doQuery (positionsByStateQuery (
+        let rawPositions = await doQuery (positionsByStateQuery (
             state,
             ownerAddress || ethers.constants.AddressZero,
             startFrom,
@@ -613,10 +620,69 @@ const fetchPositions = async (req, res) => {
             Array.from (searchItemIds)
         ));
 
-        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions);
+        rawPositions = rawPositions.map (position => {
+            return {
+                ...position,
+                saleData: null,
+                auctionData: null,
+                raffleData: null,
+                loanData: null
+            }
+        });
+
+        const positionIds = rawPositions.map (position => position.positionId);
+        const additionalNamesSearch = [];
+        if (state === 1) {
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    saleData: { price: position.price }
+                }
+            }
+        } else if (state === 2) {
+            const data = await getAuctionDatas (positionIds);
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    auctionData: data.auctionDatas.get (position.positionId)
+                }
+            }
+            additionalNamesSearch.push (...data.highestBidders);
+        } else if (state === 3) {
+            const data = await getRaffleDatas (positionIds);
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    raffleData: data.raffleDatas.get (position.positionId)
+                }
+            }
+        } else if (state === 4) {
+            const data = await getLoanDatas (positionIds);
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    loanData: data.loanDatas.get (position.positionId)
+                }
+            }
+            additionalNamesSearch.push (...data.lenders);
+        }
+
+        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions, additionalNamesSearch);
         const positions = [];
         for (let i = 0; i < rawPositions.length; i++) {
             const position = rawPositions [i];
+            if (position.state === 2) {
+                const highestBidderName = names [position.auctionData.highestBidder.address];
+                position.auctionData.highestBidder.name = highestBidderName || position.auctionData.highestBidder.address;
+            } else if (position.state === 4) {
+                const lenderName = names [position.loanData.lender.address];
+                position.loanData.lender.name = lenderName || loanData.lender.address;
+            }
+
             positions.push ({
                 positionId: position.positionId,
                 itemId: position.itemId,
@@ -633,10 +699,10 @@ const fetchPositions = async (req, res) => {
                     name: names [position.owner] || position.owner
                 },
                 amount: position.amount,
-                sale: state === 1 ? { price: position.price } : null,
-                auction: state === 2 ? getAuctionData (position, names) : null, // TODO
-                raffle: state === 3 ? getRaffleData (position) : null, // TODO
-                loan: state === 4 ? getLoanData (position, names) : null, // TODO
+                sale: position.saleData,
+                auction: position.auctionData,
+                raffle: position.raffleData,
+                loan: position.loanData,
                 marketFee: position.marketFee,
                 state: state,
                 meta: collectibles [position.itemId.toString ()].meta,
@@ -645,7 +711,7 @@ const fetchPositions = async (req, res) => {
         res.status (200).json ({
             items: positions,
             pagination: {
-                lowest: minOfArray (positions.map (position => position.positionId)),
+                lowest: startFrom + limit + 1,
                 limit
             }
         });

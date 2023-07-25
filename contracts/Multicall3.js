@@ -437,4 +437,8 @@ let ABI = [
       "stateMutability": "payable",
       "type": "function"
     }
-  ]
+];
+
+module.exports = {
+    ABI
+}
