@@ -14,8 +14,8 @@ const claimTokens = async (req, res) => {
             error: 'Claim not found'
         });
     } else {
-        await q[0].ref.update ({
-            claimable: false
+        await q.docs[0].ref.update ({
+            claimed: true
         }, { merge: true });
 
         res.status (200).json ({

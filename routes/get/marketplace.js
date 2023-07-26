@@ -14,7 +14,7 @@ const MarketplaceContract = (signerOrProvider, contractAddress) => new ethers.Co
 const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['multicall'], multicallContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionQuery, positionsByStateQuery } = require('../../lib/graphqlApi');
+const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionQuery, positionsByStateQuery, positionsNotDeletedQuery, positionsDeletedQuery } = require('../../lib/graphqlApi');
 let provider, collectibleContract, marketplaceContract, multicallContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
@@ -54,8 +54,6 @@ const sliceIntoChunks = (arr, chunkSize) => {
     }
     return res;
 }
-
-const minOfArray = arr => arr.reduce ((a, b) => Math.min (a, b), Infinity);
 
 const getAuctionData = async (positionId) => {
     const auctionData = await marketplaceContract.fetchAuctionData (positionId);
@@ -407,13 +405,20 @@ const getClaimableItems = async (address) => {
     let items = {};
     claimableItems.forEach (doc => {
         const data = doc.data ();
-        items [data.nftId].amount = data.amount;
+        if (items [data.nftId]) {
+            items [data.nftId].amount += data.amount;
+        } else {
+            items [data.nftId] = {
+                tokenId: data.nftId,
+                amount: data.amount
+            }
+        }
     });
     const itemIds = [];
     // get itemId from tokenId
     items = Object.values (items);
     items = await Promise.all (items.map (async (item, i) => {
-        const itemRes = await doQuery (itemByNftIdQuery (item.nftId));
+        const itemRes = await doQuery (itemByNftIdQuery (item.tokenId));
         if (!itemRes) {
             console.log ('Item does not exist in marketplace.');
             return;
@@ -511,7 +516,17 @@ const fetchSummary = async (_req, res) => {
             )))
         );
 
-        const allRawPositionsFlat = allRawPositions.reduce ((acc, curr) => [...acc, ...curr], []);
+        const additionalNamesSearch = [];
+        const auctionIds = allRawPositions[1].map (position => position.positionId);
+        const raffleIds = allRawPositions[2].map (position => position.positionId);
+        const loanIds = allRawPositions[3].map (position => position.positionId);
+        const [auctionDatas, raffleDatas, loanDatas] = await Promise.all ([
+            getAuctionDatas (auctionIds),
+            getRaffleDatas (raffleIds),
+            getLoanDatas (loanIds)
+        ]);
+        additionalNamesSearch.push (...auctionDatas.highestBidders, ...loanDatas.lenders);
+        const allRawPositionsFlat = allRawPositions.reduce ((acc, curr) => [...acc, ...curr], additionalNamesSearch);
         const rawPositions = allRawPositionsFlat.filter (position => position.amount > 0);
 
         const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions, []);
@@ -524,12 +539,30 @@ const fetchSummary = async (_req, res) => {
         }
         let keys = Object.keys (newObject);
         rawPositions.forEach (position => {
-            if (position.state === 2) {
+            if (position.state === 1) {
+                position.saleData = { price: position.price };
+                position.auctionData = null;
+                position.raffleData = null;
+                position.loanData = null;
+            } else if (position.state === 2) {
+                position.auctionData = auctionDatas.auctionDatas.get (position.positionId);
                 const highestBidderName = names [position.auctionData.highestBidder.address];
                 position.auctionData.highestBidder.name = highestBidderName || position.auctionData.highestBidder.address;
-            } else if (position.state === 4) {
+                position.saleData = null;
+                position.raffleData = null;
+                position.loanData = null;
+            } else if (position.state === 3) {
+                position.raffleData = raffleDatas.raffleDatas.get (position.positionId);
+                position.saleData = null;
+                position.auctionData = null;
+                position.loanData = null;
+            } else {
+                position.loanData = loanDatas.loanDatas.get (position.positionId);
                 const lenderName = names [position.loanData.lender.address];
-                position.loanData.lender.name = lenderName || loanData.lender.address;
+                position.loanData.lender.name = lenderName || position.loanData.lender.address;
+                position.saleData = null;
+                position.auctionData = null;
+                position.raffleData = null;
             }
 
             const positionObject = {
