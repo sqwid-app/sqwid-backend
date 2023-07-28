@@ -215,11 +215,30 @@ const fetchCollectionStats = async (req, res) => {
 };
 
 const fetchPosition = async (req, res) => {
-    const { positionId } = req.params;
+    const { positionId } = req.params; 
     try {
-        const position = await doQuery (positionQuery (positionId));
+        let position = await doQuery (positionQuery (positionId));
+        if (!position) {
+            // If position not found in indexer, query contract directly. It might yet not be indexed.
+            const positionRes = await marketplaceContract.fetchPosition (positionId);
+            if (!positionRes) return res.status (400).json ({ error: 'Position not found' });
 
-        if (!position.amount) return res?.status (404).send ({ error: 'Position does not exist.' });
+            const itemRes = await marketplaceContract .fetchItem (Number(positionRes.itemId));
+            if (!itemRes) return res.status (400).json ({ error: 'Item for position not found' });
+            position = {
+                itemId: Number(positionRes.itemId),
+                itemCreator: itemRes.creator,
+                nftContract: itemRes.nftContract,
+                tokenId: Number(itemRes.tokenId),
+                owner: positionRes.owner,
+                marketFee: Number(positionRes.marketFee),
+                amount: Number(positionRes.amount),
+                price: Number(positionRes.price),
+                state: Number(positionRes.state),
+            };
+        }
+
+        if (!position?.amount) return res?.status (404).send ({ error: 'Position does not exist.' });
         
         let collectibleData = await getDbCollectibles ([position.itemId]);
 
@@ -631,12 +650,16 @@ const fetchPositions = async (req, res) => {
     try {
         if (traits && Object.keys (traits).length) {
             searchItemIds = await grabItemsWithTraits (traits, collectionId);
-        }
-        for (let i = 0; i < approvedIds.length; i++) {
-            if (collectionsOfApprovedItems [approvedIds [i].collection] === collectionId) {
-                searchItemIds.add (approvedIds [i].id);
+        } else if (collectionId) {
+            for (let i = 0; i < approvedIds.length; i++) {
+                if (collectionsOfApprovedItems [approvedIds [i].collection] === collectionId) {
+                    searchItemIds.add (approvedIds [i].id);
+                }
             }
+        } else {
+            searchItemIds = new Set (approvedIds.map (item => item.id));
         }
+        
         if (!Array.from (searchItemIds).length) return res.status (200).json ({
             items: [],
             pagination: {
@@ -713,7 +736,7 @@ const fetchPositions = async (req, res) => {
                 position.auctionData.highestBidder.name = highestBidderName || position.auctionData.highestBidder.address;
             } else if (position.state === 4) {
                 const lenderName = names [position.loanData.lender.address];
-                position.loanData.lender.name = lenderName || loanData.lender.address;
+                position.loanData.lender.name = lenderName || position.loanData.lender.address;
             }
 
             positions.push ({

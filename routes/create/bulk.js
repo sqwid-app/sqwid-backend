@@ -245,7 +245,17 @@ const verifyItems = async (req, res, next) => {
       // itemIds.forEach (async (id) => {
       for (let id of itemIds) {
           try {
-              const item = await doQuery (itemQuery (id));
+              let item = await doQuery (itemQuery (id));
+              if (!item) {
+                // If item not found in indexer, query contract directly. It might yet not be indexed.
+                const res = await marketContract .fetchItem (id);
+                if (!res) return res.status (400).json ({ error: 'Item not found' });
+                item = {
+                    tokenId: Number(res.tokenId),
+                    nftContract: res.nftContract,
+                    creator: res.creator
+                };
+              }
               let ipfsURI;
               if (item.creator === creator) {
                   let meta = {};
