@@ -14,6 +14,8 @@ const { newCollection } = require('../../lib/collection');
 const { getWallet } = require("../../lib/getWallet");
 const getNetwork = require('../../lib/getNetwork');
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
+const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
+const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
@@ -217,6 +219,7 @@ const chunkPromises = (array, chunkSize) => {
 
 const verifyItems = async (req, res, next) => {
     const { provider } = await getWallet ();
+    const marketContract = utilityContract (provider);
     const tokenContract = collectibleContract (provider);
     const { itemIds, collectionId } = req.body;
 
@@ -245,17 +248,7 @@ const verifyItems = async (req, res, next) => {
       // itemIds.forEach (async (id) => {
       for (let id of itemIds) {
           try {
-              let item = await doQuery (itemQuery (id));
-              if (!item) {
-                // If item not found in indexer, query contract directly. It might yet not be indexed.
-                const res = await marketContract .fetchItem (id);
-                if (!res) return res.status (400).json ({ error: 'Item not found' });
-                item = {
-                    tokenId: Number(res.tokenId),
-                    nftContract: res.nftContract,
-                    creator: res.creator
-                };
-              }
+              const item = await marketContract.fetchItem (id);
               let ipfsURI;
               if (item.creator === creator) {
                   let meta = {};
@@ -284,7 +277,7 @@ const verifyItems = async (req, res, next) => {
                   await Promise.all ([
                       firebase.collection ('collectibles').add ({
                           id,
-                          tokenId: item.tokenId,
+                          tokenId: item.tokenId.toNumber (),
                           uri: ipfsURI,
                           collectionId,
                           createdAt: new Date (),
@@ -418,7 +411,7 @@ const getMetadata = (csv) => {
         else if (ext !== _ext) 
           return { errorCode: 400, errorMessage: "Metadata file contains mixed file extensions"};
       } else {
-        return { errorCode: 400, errorMessage: "Metadata file contains unsupported file extensions"};
+        return { errorCode: 400, errorMessage: "Metadata file contains unsopported file extensions"};
       }
 
       const metadata = {

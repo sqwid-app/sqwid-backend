@@ -6,23 +6,21 @@ const grabCollectibleOwners = async id => {
     return await doQuery (tokenHoldersCountQuery (tokenId, nftContract));
 }
 
-const computeVolumeFromSales = sales => {
-    return sales.reduce ((acc, sale) => {
-        return acc + (sale.amount * sale.price);
-    }, 0);
-}
-
-const getCollectibleAverage = (sales) => {
+const computeSalesData = (sales) => {
     let totalAmount = 0; 
-    let totalPrice = 0;
+    let totalVolume = 0;
     for (let sale of sales) {
         totalAmount += sale.amount;
-        totalPrice += sale.amount * sale.price;
+        totalVolume += sale.amount * sale.price;
     }
 
-    const averagePrice = totalPrice / totalAmount;
+    const averagePrice = totalVolume / totalAmount;
 
-    return Number(averagePrice.toFixed(2)) || 0;
+    return {
+        volume: totalVolume, 
+        average: Number(averagePrice.toFixed(2)) || 0 ,
+        salesAmount: totalAmount 
+    };
 }
 
 const getCollectibleSaleHistory = async (req, res) => {
@@ -40,12 +38,13 @@ const getCollectibleAllStats = async (req, res) => {
         grabCollectibleOwners (id)
     ]);
 
+    const { volume, average, salesAmount } = computeSalesData (sales);
     const collectibleAllStats = {
-        volume: Number (computeVolumeFromSales (sales).toFixed (2)),
-        average: getCollectibleAverage (sales),
-        salesAmount: sales.length,
-        lastSale: lastSale,
-        owners: owners
+        volume,
+        average,
+        salesAmount,
+        lastSale,
+        owners
     };
 
     res?.json (collectibleAllStats);
