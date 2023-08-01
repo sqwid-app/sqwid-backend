@@ -5,22 +5,19 @@ const { verify } = require ('../../middleware/auth');
 const claimTokens = async (req, res) => {
     const { evmAddress } = req.user;
     const { tokenId } = req.params;
-    const { remove } = req.body;
-    const q = await firebase.collection ('transfers').where ('to', '==', evmAddress).where ('tokenId', '==', Number (tokenId)).get ();
+    const q = await firebase.collection ('claims')
+        .where ('owner', '==', evmAddress)
+        .where ('nftId', '==', Number (tokenId))
+        .where ('claimed', '==', false).get ();
     if (q.empty) {
         res.status (404).json ({
-            error: 'Transfer not found'
+            error: 'Claim not found'
         });
     } else {
-        q.forEach (async doc => {
-            if (remove) {
-                await doc.ref.delete ();
-            } else {
-                await doc.ref.update ({
-                    claimable: false
-                }, { merge: true });
-            }
-        });
+        await q.docs[0].ref.update ({
+            claimed: true
+        }, { merge: true });
+
         res.status (200).json ({
             success: true
         });

@@ -2,25 +2,20 @@ const { Router } = require ('express');
 
 const getAuthRoutes = require ('./auth');
 const getNonceRoutes = require ('./nonce');
-const getCreateCollectibleRoutes = require ('./create/collectible');
 const getCreateBulkRoutes = require ('./create/bulk');
+const getCreateCollectibleRoutes = require ('./create/collectible');
 const getCreateCollectionRoutes = require ('./create/collection');
-const getCollectionsRoutes = require ('./get/collections').router;
-// const getCollectiblesRoutes = require ('./get/collectibles');
-// const getCollectibleRoutes = require ('./get/collectible');
-const getUserRoutes = require ('./get/user').router;
-const getEditUserRoutes = require ('./edit/user');
-const getUpdateFeaturedRoutes = require ('./edit/featured');
+const getEditClaimTransferRoutes = require ('./edit/claimTransfer').router;
 const getEditCollectibleRoutes = require ('./edit/collectible');
 const getEditCollectionRoutes = require ('./edit/collection');
-// const getVerifyJWTRoutes = require ('./verifyjwt');
-// const getEditEVMAddressRoutes = require ('./edit/evmAddress');
-// const getSyncCollectiblesRoutes = require ('./sync/collectibles');
+const getUpdateFeaturedRoutes = require ('./edit/featured');
+const getEditUserRoutes = require ('./edit/user');
+const getCollectionsRoutes = require ('./get/collections').router;
 const getMarketplaceRoutes = require ('./get/marketplace').router;
-const getStatswatchRoutes = require ('./get/statswatch');
-// const getMarketplaceOldRoutes = require ('./get/r/marketplace_old').router;
-const getHeartsRoutes = require ('./interact/heart').router;
 const searchRoutes = require ('./get/search').router;
+const getStatswatchRoutes = require ('./get/statswatch');
+const getUserRoutes = require ('./get/user').router;
+const getHeartsRoutes = require ('./interact/heart').router;
 const rateLimit = require ('express-rate-limit');
 
 const createLimiter = rateLimit ({
@@ -62,7 +57,7 @@ module.exports = () => {
     router.use ('/statswatch', getStatswatchRoutes ());
     router.use ('/heart', getHeartsRoutes ());
     router.use ('/search', searchRoutes ());
-    router.use ('/claim', require ('./edit/claimTransfer').router ());
+    router.use ('/claim', getEditClaimTransferRoutes ());
 
     router.get ('/', (req, res) => {
         res.send ('Sqwid API');

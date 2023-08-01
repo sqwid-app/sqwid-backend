@@ -1,10 +1,11 @@
 const networks = {
     reef_testnet: {
-        rpc: 'wss://rpc-testnet.reefscan.com/ws',
+        rpc: 'wss://rpc-testnet.reefscan.info/ws',
         contracts: {
-            marketplace: '0x0a3F2785dBBC5F022De511AAB8846388B78009fD',
-			erc1155: '0x1A511793FE92A62AF8bC41d65d8b94d4c2BD22c3',
-			utility: '0x08925246669D150d5D4597D756A3C788eae2834B',
+            marketplace: '0xCA864F5BBc03072F70620A359D8CD6f272665DC4',
+			erc1155: '0x02fA6e000B4Ba18fbd17552E5c5cf91b03F2e542',
+			utility: '0x5B74AcCeB8260B4ae60CF521F6b70571c453cae6',
+            multicall: '0x922E03189ABDAC04e5BB7c6C53Abca94F8079345'
         },
         typesense: {
             collections: {
@@ -15,13 +16,16 @@ const networks = {
             host: 'search.sqwid.app'
         },
         useCache: true,
+        graphql_api_explorer: 'https://squid.subsquid.io/reef-explorer-testnet/graphql',
+        graphql_api_marketplace: 'https://squid.subsquid.io/sqwid-marketplace-testnet/graphql',
     },
     reef_mainnet: {
-        rpc: 'wss://rpc.reefscan.com/ws',
+        rpc: 'wss://rpc.reefscan.info/ws',
         contracts: {
             marketplace: "0xB13Be9656B243600C86922708C20606f5EA89218",
 			erc1155: "0x0601202b75C96A61CDb9A99D4e2285E43c6e60e4",
 			utility: "0xffb12A5f69AFBD58Dc49b4AE9044D8F20D131733",
+            multicall: "0x137A7237e2a5f7f2eEE1C1471fbb26d0be8Fcc60"
         },
         typesense: {
             collections: {
@@ -31,7 +35,9 @@ const networks = {
             },
             host: 'search.sqwid.app'
         },
-        useCache: true
+        useCache: true,
+        graphql_api_explorer: 'https://squid.subsquid.io/reef-explorer/graphql',
+        graphql_api_marketplace: 'https://squid.subsquid.io/sqwid-marketplace/graphql',
     }
 }
 
