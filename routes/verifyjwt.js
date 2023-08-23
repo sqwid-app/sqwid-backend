@@ -22,7 +22,7 @@ const verify = (req, res) => {
 module.exports = () => {
     const router = Router ();
 
-    router.get ('/', verify);
+    // router.get ('/', verify);
 
     return router;
 }

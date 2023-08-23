@@ -18,7 +18,7 @@ const getCollectible = async (req, res) => {
 module.exports = () => {
     const router = Router ();
 
-    router.get ('/:id', getCollectible);
+    // router.get ('/:id', getCollectible);
     
     return router;
 }
