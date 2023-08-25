@@ -4,6 +4,7 @@ const rateLimit = require ('express-rate-limit');
 const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
+const multicallContractABI = require ('../../contracts/Multicall3').ABI;
 const { getWallet } = require ('../../lib/getWallet');
 const getNetwork = require ('../../lib/getNetwork');
 const firebase = require ('../../lib/firebase');
@@ -12,15 +13,17 @@ const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cach
 const UtilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
 const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['multicall'], multicallContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery } = require('../../lib/graphqlApi');
+const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionsByStateQuery } = require('../../lib/graphqlApi');
 let provider, utilityContract, marketplaceContract, collectibleContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
     utilityContract = UtilityContract (provider);
     marketplaceContract = MarketplaceContract (provider);
     collectibleContract = CollectibleContract (provider);
+    multicallContract = MulticallContract (provider);
     console.log ('Wallet loaded.');
 });
 let collectionsOfApprovedItems = {};
@@ -68,6 +71,88 @@ const getBoolsArray = arr => {
         packed [(i / 8) | 0] = setBoolean (packed [(i / 8) | 0] || 0, (i + 0) % 8, boolArray [i])
     }
     return packed;
+}
+
+const getAuctionDatas = async (positionIds) => {
+    const calls = positionIds.map((positionId) => ({
+        target: marketplaceContract.address,
+        allowFailure: true,
+        callData: marketplaceContract.interface.encodeFunctionData('fetchAuctionData', [positionId]),
+    }));
+
+    const response = await multicallContract.callStatic.aggregate3 (calls);
+
+    const auctionDatas = new Map ();
+    const highestBidders = [];
+    response.forEach(({ success, returnData }, i) => {
+        if (!success) throw new Error(`Failed to get auction data for ${positionIds[i]}`);
+        const auctionData = marketplaceContract.interface.decodeFunctionResult('fetchAuctionData', returnData)[0];
+        auctionDatas.set(positionIds[i], {
+            deadline: Number (auctionData.deadline),
+            minBid: Number (auctionData.minBid),
+            highestBid: Number (auctionData.highestBid),
+            highestBidder: {
+                address: auctionData.highestBidder,
+                name: auctionData.highestBidder
+            }
+        });
+        highestBidders.push (auctionData.highestBidder);
+    });
+
+    return { auctionDatas, highestBidders };
+}
+
+const getRaffleDatas = async (positionIds) => {
+    const calls = positionIds.map((positionId) => ({
+        target: marketplaceContract.address,
+        allowFailure: true,
+        callData: marketplaceContract.interface.encodeFunctionData('fetchRaffleData', [positionId]),
+    }));
+
+    const response = await multicallContract.callStatic.aggregate3 (calls);
+
+    const raffleDatas = new Map ();
+    response.forEach(({ success, returnData }, i) => {
+        if (!success) throw new Error(`Failed to get raffle data for ${positionIds[i]}`);
+        const raffleData = marketplaceContract.interface.decodeFunctionResult('fetchRaffleData', returnData)[0];
+        raffleDatas.set(positionIds[i], {
+            deadline: Number (raffleData.deadline),
+            totalValue: Number (raffleData.totalValue) * (10 ** 18),
+            totalAddresses: Number (raffleData.totalAddresses),
+        })
+    });
+
+    return { raffleDatas };
+}
+
+const getLoanDatas = async (positionIds) => {
+    const calls = positionIds.map((positionId) => ({
+        target: marketplaceContract.address,
+        allowFailure: true,
+        callData: marketplaceContract.interface.encodeFunctionData('fetchLoanData', [positionId]),
+    }));
+
+    const response = await multicallContract.callStatic.aggregate3 (calls);
+
+    const loanDatas = new Map ();
+    const lenders = [];
+    response.forEach(({ success, returnData }, i) => {
+        if (!success) throw new Error(`Failed to get loan data for ${positionIds[i]}`);
+        const loanData = marketplaceContract.interface.decodeFunctionResult('fetchLoanData', returnData)[0];
+        loanDatas.set(positionIds[i], {
+            deadline: Number (loanData.deadline),
+            loanAmount: Number (loanData.loanAmount),
+            feeAmount: Number (loanData.feeAmount),
+            numMinutes: Number (loanData.numMinutes),
+            lender: {
+                address: loanData.lender,
+                name: loanData.lender
+            }
+        });
+        lenders.push (loanData.lender);
+    });
+
+    return { loanDatas, lenders };
 }
 
 const buildSaleData = position => {
@@ -341,6 +426,36 @@ const getNamesByEVMAddresses = async (addresses) => {
     return cached.concat (fResult);
 }
 
+const buildObjectsFromPositions = async (positions, additionalNamesSearch) => {
+    const itemIds = Array.from (new Set (positions.map (position => position.itemId)));
+    const collectionsSet = new Set (positions.map (position => collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]));
+    const addresses = new Set (positions.reduce ((acc, position) => [...acc, position.owner, position.itemCreator], additionalNamesSearch));
+    const collectiblesPromise = getDbCollectibles (itemIds);
+    const namesPromise = getNamesByEVMAddresses (Array.from (addresses));
+    const collectionsPromise = getDbCollections (Array.from (collectionsSet));
+    const [collectibles, names, collections] = await Promise.all ([collectiblesPromise, namesPromise, collectionsPromise]);
+
+    const collectiblesObject = collectibles.reduce ((acc, curr) => {
+        acc [curr.id] = curr;
+        return acc;
+    }, {});
+
+    const collectionsObject = collections.reduce ((acc, collection) => {
+        delete collection.data.traits;
+        return { ...acc, [collection.id]: { ...collection.data, id: collection.id } };
+    }, {});
+    let namesObj;
+    names.forEach (name => {
+        namesObj = { ...namesObj, [name.address]: name.name };
+    });
+    
+    return {
+        collectibles: collectiblesObject,
+        collections: collectionsObject,
+        names: namesObj
+    }
+}
+
 const buildObjectsFromItems = async (items) => {
     const itemIds = Array.from (new Set (items.map (item => Number (item.item.itemId))));
     const collectionsSet = new Set (items.map (item => collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]));
@@ -493,31 +608,43 @@ const constructAllowedBytes = (collectionId = null, ids = []) => {
     return allowedBytes;
 }
 
-const fetchSummary = async (req, res) => {
+
+const fetchSummary = async (_req, res) => {
     try {
-        let allowedBytes = constructAllowedBytes ();
-        if (!allowedBytes.length) return res.status (200).json ({
+        const searchItemIds = new Set (approvedIds.map (item => item.id));
+
+        if (!Array.from (searchItemIds).length) return res.status (200).json ({
             sale: [],
             auction: [],
             raffle: [],
             loan: []
         });
-        const allRawItems = await Promise.all (
+        const allRawPositions = await Promise.all (
             new Array (4)
             .fill (null)
-            .map ((_, i) => utilityContract.fetchPositions ( // TODO
+            .map ((_, i) => doQuery (positionsByStateQuery (
                 i + 1, // state
                 ethers.constants.AddressZero, // owner
                 0, // startFrom
                 4, // limit
-                allowedBytes
-            ))
+                Array.from (searchItemIds)
+            )))
         );
 
-        const allRawItemsFlat = allRawItems.reduce ((acc, curr) => [...acc, ...curr], []);
-        let rawItems = allRawItemsFlat.filter (item => Number (item.amount) > 0);
+        const additionalNamesSearch = [];
+        const auctionIds = allRawPositions[1].map (position => position.positionId);
+        const raffleIds = allRawPositions[2].map (position => position.positionId);
+        const loanIds = allRawPositions[3].map (position => position.positionId);
+        const [auctionDatas, raffleDatas, loanDatas] = await Promise.all ([
+            getAuctionDatas (auctionIds),
+            getRaffleDatas (raffleIds),
+            getLoanDatas (loanIds)
+        ]);
+        additionalNamesSearch.push (...auctionDatas.highestBidders, ...loanDatas.lenders);
+        const allRawPositionsFlat = allRawPositions.reduce ((acc, curr) => [...acc, ...curr], additionalNamesSearch);
+        const rawPositions = allRawPositionsFlat.filter (position => position.amount > 0);
 
-        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
+        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions, []);
 
         let newObject = {
             sale: [],
@@ -526,32 +653,58 @@ const fetchSummary = async (req, res) => {
             loan: []
         }
         let keys = Object.keys (newObject);
-        rawItems.forEach (item => {
-            const itemObject = {
-                positionId: Number (item.positionId),
-                itemId: Number (item.item.itemId),
-                tokenId: Number (item.item.tokenId),
-                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]],
+        rawPositions.forEach (position => {
+            if (position.state === 1) {
+                position.saleData = { price: position.price };
+                position.auctionData = null;
+                position.raffleData = null;
+                position.loanData = null;
+            } else if (position.state === 2) {
+                position.auctionData = auctionDatas.auctionDatas.get (position.positionId);
+                const highestBidderName = names [position.auctionData.highestBidder.address];
+                position.auctionData.highestBidder.name = highestBidderName || position.auctionData.highestBidder.address;
+                position.saleData = null;
+                position.raffleData = null;
+                position.loanData = null;
+            } else if (position.state === 3) {
+                position.raffleData = raffleDatas.raffleDatas.get (position.positionId);
+                position.saleData = null;
+                position.auctionData = null;
+                position.loanData = null;
+            } else {
+                position.loanData = loanDatas.loanDatas.get (position.positionId);
+                const lenderName = names [position.loanData.lender.address];
+                position.loanData.lender.name = lenderName || position.loanData.lender.address;
+                position.saleData = null;
+                position.auctionData = null;
+                position.raffleData = null;
+            }
+
+            const positionObject = {
+                positionId: position.positionId,
+                itemId: position.itemId,
+                tokenId: position.tokenId,
+                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
-                    address: item.item.creator,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                    name: names [item.item.creator] || item.item.creator
+                    address: position.itemCreator,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.itemCreator}.svg`,
+                    name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
-                    address: item.owner,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                    name: names [item.owner] || item.owner
+                    address: position.owner,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                    name: names [position.owner] || position.owner
                 },
-                amount: Number (item.amount),
-                sale: item.state === 1 ? getSaleData (item) : null,
-                auction: item.state === 2 ? getAuctionData (item, names) : null,
-                raffle: item.state === 3 ? getRaffleData (item) : null,
-                loan: item.state === 4 ? getLoanData (item, names) : null,
-                marketFee: Number (item.marketFee),
-                state: item.state,
-                meta: collectibles [item.item.itemId.toString ()].meta,
+                amount: position.amount,
+                sale: position.saleData,
+                auction: position.auctionData,
+                raffle: position.raffleData,
+                loan: position.loanData,
+                marketFee: position.marketFee,
+                state: position.state,
+                meta: collectibles [position.itemId.toString ()].meta,
             }
-            newObject [keys [item.state - 1]].push (itemObject);
+            newObject [keys [position.state - 1]].push (positionObject);
         });
 
         res.status (200).json ({
@@ -565,7 +718,7 @@ const fetchSummary = async (req, res) => {
     }
 }
 
-const fetchFeatured = async (req, res) => {
+const fetchFeatured = async (_req, res) => {
     try {
         const featuredPromises = featuredIds.map (id => fetchPosition ({ params: { positionId: id } }));
         let featured = await Promise.all (featuredPromises);
