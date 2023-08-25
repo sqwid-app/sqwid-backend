@@ -586,7 +586,7 @@ const grabItemsWithTraits = async (traits, collectionId) => {
             ids.add (snapshot.data ().id)
         });
     });
-    return Array.from (ids).sort ((a, b) => a - b);
+    return ids;
 }
 
 const constructAllowedBytes = (collectionId = null, ids = []) => {
@@ -738,16 +738,25 @@ const fetchFeatured = async (_req, res) => {
 
 const fetchPositions = async (req, res) => {
     const { type, ownerAddress, collectionId } = req.params;
+    const state = Number(type);
     const startFrom = Number (req.query.startFrom) || 0;
     const limit = Math.min (Number (req.query.limit), 100) || 10;
     const { traits } = req.query;
-    let specificIds = [];
+    let searchItemIds = new Set ();
     try {
         if (traits && Object.keys (traits).length) {
-            specificIds = await grabItemsWithTraits (traits, collectionId);
+            searchItemIds = await grabItemsWithTraits (traits, collectionId);
+        } else if (collectionId) {
+            for (let i = 0; i < approvedIds.length; i++) {
+                if (collectionsOfApprovedItems [approvedIds [i].collection] === collectionId) {
+                    searchItemIds.add (approvedIds [i].id);
+                }
+            }
+        } else {
+            searchItemIds = new Set (approvedIds.map (item => item.id));
         }
-        let allowedBytes = constructAllowedBytes (collectionId, specificIds);
-        if (!allowedBytes.length) return res.status (200).json ({
+        
+        if (!Array.from (searchItemIds).length) return res.status (200).json ({
             items: [],
             pagination: {
                 lowest: 0,
@@ -755,43 +764,106 @@ const fetchPositions = async (req, res) => {
             }
         });
 
-        // TODO
-        const allRawItems = await utilityContract.fetchPositions (Number (type), ownerAddress || ethers.constants.AddressZero, startFrom, startFrom ? Math.min (limit, startFrom) : limit, allowedBytes);
-        let rawItems = allRawItems.filter (item => Number (item.positionId) > 0);
+        let rawPositions = await doQuery (positionsByStateQuery (
+            state,
+            ownerAddress || ethers.constants.AddressZero,
+            startFrom,
+            startFrom ? Math.min (limit, startFrom) : limit,
+            Array.from (searchItemIds)
+        ));
 
-        const { collectibles, collections, names } = await buildObjectsFromItems (rawItems);
-        const items = [];
-        for (let i = 0; i < rawItems.length; i++) {
-            const item = rawItems [i];
-            items.push ({
-                positionId: Number (item.positionId),
-                itemId: Number (item.item.itemId),
-                tokenId: Number (item.item.tokenId),
-                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === Number (item.item.itemId)).collection]],
+        rawPositions = rawPositions.map (position => {
+            return {
+                ...position,
+                saleData: null,
+                auctionData: null,
+                raffleData: null,
+                loanData: null
+            }
+        });
+
+        const positionIds = rawPositions.map (position => position.positionId);
+        const additionalNamesSearch = [];
+        if (state === 1) {
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    saleData: { price: position.price }
+                }
+            }
+        } else if (state === 2) {
+            const data = await getAuctionDatas (positionIds);
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    auctionData: data.auctionDatas.get (position.positionId)
+                }
+            }
+            additionalNamesSearch.push (...data.highestBidders);
+        } else if (state === 3) {
+            const data = await getRaffleDatas (positionIds);
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    raffleData: data.raffleDatas.get (position.positionId)
+                }
+            }
+        } else if (state === 4) {
+            const data = await getLoanDatas (positionIds);
+            for (let i = 0; i < rawPositions.length; i++) {
+                const position = rawPositions [i];
+                rawPositions [i] = {
+                    ...position,
+                    loanData: data.loanDatas.get (position.positionId)
+                }
+            }
+            additionalNamesSearch.push (...data.lenders);
+        }
+
+        const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions, additionalNamesSearch);
+        const positions = [];
+        for (let i = 0; i < rawPositions.length; i++) {
+            const position = rawPositions [i];
+            if (position.state === 2) {
+                const highestBidderName = names [position.auctionData.highestBidder.address];
+                position.auctionData.highestBidder.name = highestBidderName || position.auctionData.highestBidder.address;
+            } else if (position.state === 4) {
+                const lenderName = names [position.loanData.lender.address];
+                position.loanData.lender.name = lenderName || position.loanData.lender.address;
+            }
+
+            positions.push ({
+                positionId: position.positionId,
+                itemId: position.itemId,
+                tokenId: position.tokenId,
+                collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
-                    address: item.item.creator,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.item.creator}.svg`,
-                    name: names [item.item.creator] || item.item.creator
+                    address: position.itemCreator,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.itemCreator}.svg`,
+                    name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
-                    address: item.owner,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${item.owner}.svg`,
-                    name: names [item.owner] || item.owner
+                    address: position.owner,
+                    avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                    name: names [position.owner] || position.owner
                 },
-                amount: Number (item.amount),
-                sale: item.state === 1 ? getSaleData (item) : null,
-                auction: item.state === 2 ? getAuctionData (item, names) : null,
-                raffle: item.state === 3 ? getRaffleData (item) : null,
-                loan: item.state === 4 ? getLoanData (item, names) : null,
-                marketFee: Number (item.marketFee),
-                state: item.state,
-                meta: collectibles [item.item.itemId.toString ()].meta,
+                amount: position.amount,
+                sale: position.saleData,
+                auction: position.auctionData,
+                raffle: position.raffleData,
+                loan: position.loanData,
+                marketFee: position.marketFee,
+                state: state,
+                meta: collectibles [position.itemId.toString ()].meta,
             });
         }
         res.status (200).json ({
-            items,
+            items: positions,
             pagination: {
-                lowest: minOfArray (items.map (item => item.positionId)),
+                lowest: startFrom + limit + 1,
                 limit
             }
         });
@@ -902,11 +974,11 @@ const healthCheckLimiter = rateLimit ({
 	legacyHeaders: false,
 });
 
-const health = async (req, res) => {
+const health = async (_req, res) => {
     res.status (200).send ('OK');
 }
 
-const statswatchHealth = async (req, res) => {
+const statswatchHealth = async (_req, res) => {
     const { provider } = await getWallet ();
     const [currentBlockNumber, lastUpdatedBlock] = await Promise.all ([
         provider.getBlockNumber (),
