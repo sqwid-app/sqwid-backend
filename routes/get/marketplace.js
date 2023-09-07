@@ -400,7 +400,7 @@ const buildObjectsFromPositions = async (positions, additionalNamesSearch) => {
         delete collection.data.traits;
         return { ...acc, [collection.id]: { ...collection.data, id: collection.id } };
     }, {});
-    let namesObj;
+    let namesObj = {};
     names.forEach (name => {
         namesObj = { ...namesObj, [name.address]: name.name };
     });
@@ -460,7 +460,7 @@ const getClaimableItems = async (address) => {
         delete collection.data.traits;
         return { ...acc, [collection.id]: { ...collection.data, id: collection.id } };
     }, {});
-    let namesObj;
+    let namesObj = {};
     names.forEach (name => {
         namesObj = { ...namesObj, [name.address]: name.name };
     });
@@ -629,7 +629,7 @@ const fetchFeatured = async (_req, res) => {
         const featuredPromises = featuredIds.map (id => fetchPosition ({ params: { positionId: id } }));
         let featured = await Promise.all (featuredPromises);
         featured = featured.map ((item, i) => {
-            return item !== null ? item : { positionId: featuredIds [i] };
+            return item || { positionId: featuredIds [i] };
         });
         res.status (200).json ({
             featured
@@ -734,10 +734,10 @@ const fetchPositions = async (req, res) => {
         for (let i = 0; i < rawPositions.length; i++) {
             const position = rawPositions [i];
             if (position.state === 2) {
-                const highestBidderName = names [position.auctionData.highestBidder.address];
+                const highestBidderName = names [position.auctionData.highestBidder.address] || position.auctionData.highestBidder.address;
                 position.auctionData.highestBidder.name = highestBidderName || position.auctionData.highestBidder.address;
             } else if (position.state === 4) {
-                const lenderName = names [position.loanData.lender.address];
+                const lenderName = names [position.loanData.lender.address] || position.loanData.lender.address;
                 position.loanData.lender.name = lenderName || position.loanData.lender.address;
             }
 
