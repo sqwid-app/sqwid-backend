@@ -7,7 +7,7 @@ const multer = require ('multer');
 const getNetwork = require('../../lib/getNetwork');
 
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
-const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
+const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const cors = require ('cors');
@@ -17,7 +17,7 @@ const axios = require ('axios');
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 
 const { syncTraitsToCollection } = require('../../lib/synctraits');
 const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
@@ -27,7 +27,7 @@ const skipModeration = process.env.SKIP_MODERATION === 'true';
 
 const verifyItem = async (req, res, next) => {
     const { provider } = await getWallet ();
-    const marketContract = utilityContract (provider);
+    const marketContract = marketplaceContract (provider);
     const tokenContract = collectibleContract (provider);
     const { id, collection } = req.body;
     const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';

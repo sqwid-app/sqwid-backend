@@ -2,10 +2,10 @@ const networks = {
     reef_testnet: {
         rpc: 'wss://rpc-testnet.reefscan.info/ws',
         contracts: {
-            marketplace: '0xCA864F5BBc03072F70620A359D8CD6f272665DC4',
-			erc1155: '0x02fA6e000B4Ba18fbd17552E5c5cf91b03F2e542',
-			utility: '0x5B74AcCeB8260B4ae60CF521F6b70571c453cae6',
-            multicall: '0x922E03189ABDAC04e5BB7c6C53Abca94F8079345'
+            marketplace: '0xB4630116Dca95650C1E56F3dD39c7edeb1075B38',
+			erc1155: '0xc2F3BE4636A0a1ddf3b4D63ef22014DD41114336',
+			utility: '0x30eDebE433702029C00544615aCC4E1b445939BA',
+            multicall: '0x79cFCD43AA37A20187F4000BF4e3E4275356B109'
         },
         typesense: {
             collections: {

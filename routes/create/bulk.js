@@ -14,9 +14,9 @@ const { newCollection } = require('../../lib/collection');
 const { getWallet } = require("../../lib/getWallet");
 const getNetwork = require('../../lib/getNetwork');
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
-const utilityContractABI = require ('../../contracts/SqwidUtility').ABI;
-const utilityContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['utility'], utilityContractABI, signerOrProvider);
+const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const { default: axios } = require("axios");
@@ -219,7 +219,7 @@ const chunkPromises = (array, chunkSize) => {
 
 const verifyItems = async (req, res, next) => {
     const { provider } = await getWallet ();
-    const marketContract = utilityContract (provider);
+    const marketContract = marketplaceContract (provider);
     const tokenContract = collectibleContract (provider);
     const { itemIds, collectionId } = req.body;
 
