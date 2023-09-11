@@ -1,13 +1,6 @@
 const { Router } = require ('express');
 const firebase = require ('../../lib/firebase');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-// const { getEVMAddress } = require('../../lib/getEVMAddress');
-
-const getSubstrateAddress = async (evmAddress) => {
-    let res = await firebase.collection ('users').where ('evmAddress', '==', evmAddress).get ()
-    if (res.empty) return null;
-    else return res.docs [0].data ().address;
-} 
 
 const byOwner = async (req, res) => {
     const collectionsRef = firebase.collection ('collections');
@@ -86,12 +79,12 @@ const byId = async (req, res) => {
 const all = async (req, res) => {
     const collectionsRef = firebase.collection ('collections');
     
-    const startAt = req.query.startAt || 0;
-    const limit = Math.min (req.query.limit, 100) || 10;
-    const sorting = 'asc';
-    const orderBy = req.query.orderBy || 'name';
+    const limit = Math.min (req.query.limit, 50) || 10;
+    const sorting = req.query.sorting || 'asc';
+    const startAt = req.query.startAt || (sorting === 'asc' ? 0 : Infinity);
+    const orderBy = req.params.property || req.query.orderBy || 'name';
 
-    const snapshot = await collectionsRef.orderBy (orderBy, sorting).startAt (startAt).limit (limit).get ();
+    const snapshot = await collectionsRef.orderBy (orderBy, sorting).startAfter (Number(startAt)).limit (limit).get ();
 
     if (snapshot.empty) {
         res.status (404).send ({
@@ -108,8 +101,6 @@ const all = async (req, res) => {
     }
 }
 
-
-
 module.exports = {
     router: () => {
         const router = Router ();
@@ -118,7 +109,7 @@ module.exports = {
         // router.get ('/name/:name', byName); // re-enable when we implement the search
         router.get ('/id/:id', byId);
         // router.get ('/all', all); 
-        
+        router.get ('/all/by/:property', all);
         return router;
     },
     byOwner,

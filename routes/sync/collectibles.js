@@ -49,7 +49,7 @@ let sync = async (req, res) => {
 module.exports = () => {
     const router = Router ();
 
-    router.get ('/', sync);
+    // router.get ('/', sync);
 
     return router;
 }

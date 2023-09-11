@@ -33,7 +33,7 @@ const changeEvmAddress = async (req, res) => {
 module.exports = () => {
     const router = Router ();
 
-    router.post ('/', verify, changeEvmAddress);
+    // router.post ('/', verify, changeEvmAddress);
     
     return router;
 }
