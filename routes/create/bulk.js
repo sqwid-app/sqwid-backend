@@ -25,7 +25,9 @@ const firebase = require("../../lib/firebase");
 const { syncTraitsToCollection } = require("../../lib/synctraits");
 const { TEMP_PATH } = require("../../constants");
 const cleanTempUploads = require("../../scripts/cleanTempUploads");
+const { FieldValue } = require ('firebase-admin').firestore;
 
+const skipModeration = process.env.SKIP_MODERATION === 'true';
 const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png"];
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png"];
 const MAX_ITEMS = 10000;
@@ -233,7 +235,7 @@ const verifyItems = async (req, res, next) => {
 
     const creatorPromise = getEVMAddress (req.user.address);
     const collectionDocPromise = getDbCollections ([collectionId]);
-    const collectiblesPromise = getDbCollectibles (itemIds);
+    const collectiblesPromise = getDbCollectibles ([...itemIds]);
     const [creator, collectionDoc, collectibles] = await Promise.all ([creatorPromise, collectionDocPromise, collectiblesPromise]);
     if (collectibles.length === itemIds.length) return res.status (400).json ({
         error: 'Collectibles already verified.'
@@ -283,11 +285,20 @@ const verifyItems = async (req, res, next) => {
                           createdAt: new Date (),
                           creator,
                           meta,
-                          approved: null,
+                          approved: skipModeration ? true : null,
                           ...traits
                       }),
                       syncTraitsToCollection (collectionId, traits)
                   ]);
+
+                  if (skipModeration) {
+                    await firebase.collection ('blacklists').doc ('collectibles').update ({
+                        allowed: FieldValue.arrayUnion ({
+                            id,
+                            collection: collectionId
+                        })
+                    });
+                  }
 
                   verifiedCount++;
                   console.log (verifiedCount);
