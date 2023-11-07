@@ -60,7 +60,7 @@ module.exports = () => {
     router.use ('/claim', getEditClaimTransferRoutes ());
 
     router.get ('/', (req, res) => {
-        res.send ('Sqwid API');
+        res.send ('Sqwid API v1.0.1');
     });
 
     return router;
