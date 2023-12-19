@@ -5,9 +5,12 @@ const helmet = require ('helmet');
 const rateLimit = require ('express-rate-limit')
 const app = express ();
 const port = process.env.PORT || 8080;
+const initStatsWatch = require('./lib/initStatswatch');
 
 const firebase = require ('./lib/firebase');
 const redisClient = require ('./lib/redis');
+
+initStatsWatch();
 
 const limiter = rateLimit ({
 	windowMs: 1 * 60 * 1000, // 1 minute
