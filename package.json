@@ -13,6 +13,7 @@
   "dependencies": {
     "@apollo/client": "^3.7.17",
     "@reef-defi/evm-provider": "^1.0.7",
+    "@sqwid/rekognition-wrapper": "^1.0.1",
     "axios": "^0.24.0",
     "console-stamp": "^3.1.2",
     "cors": "^2.8.5",
