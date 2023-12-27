@@ -15,7 +15,7 @@ const networks = {
             },
             host: 'search.sqwid.app'
         },
-        useCache: true,
+        useCache: false,
         graphql_api_explorer: 'https://squid.subsquid.io/reef-explorer-testnet/graphql',
         graphql_api_marketplace: 'https://squid.subsquid.io/sqwid-marketplace-testnet/graphql',
     },
@@ -35,7 +35,7 @@ const networks = {
             },
             host: 'search.sqwid.app'
         },
-        useCache: true,
+        useCache: false,
         graphql_api_explorer: 'https://squid.subsquid.io/reef-explorer/graphql',
         graphql_api_marketplace: 'https://squid.subsquid.io/sqwid-marketplace/graphql',
     }
