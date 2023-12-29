@@ -7,15 +7,12 @@ const app = express ();
 const port = process.env.PORT || 8080;
 const initStatsWatch = require('./lib/initStatswatch');
 const { initAutomod } = require('./lib/automod');
-const { defaultNetwork } = require ('./constants');
 
 const firebase = require ('./lib/firebase');
 const redisClient = require ('./lib/redis');
 
 initStatsWatch();
-if(defaultNetwork==='reef_mainnet') {
-	initAutomod();
-}
+initAutomod();
 
 const limiter = rateLimit ({
 	windowMs: 1 * 60 * 1000, // 1 minute
