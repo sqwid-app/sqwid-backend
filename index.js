@@ -5,9 +5,14 @@ const helmet = require ('helmet');
 const rateLimit = require ('express-rate-limit')
 const app = express ();
 const port = process.env.PORT || 8080;
+const initStatsWatch = require('./lib/initStatswatch');
+const { initAutomod } = require('./lib/automod');
 
 const firebase = require ('./lib/firebase');
 const redisClient = require ('./lib/redis');
+
+initStatsWatch();
+initAutomod();
 
 const limiter = rateLimit ({
 	windowMs: 1 * 60 * 1000, // 1 minute
@@ -28,6 +33,7 @@ app.use (express.raw ({ type: "application/octet-stream", limit: "50mb" }));
 app.use (limiter);
 
 const getRoutes = require ('./routes/index');
+
 app.use ('/', getRoutes ());
 
 // app.get ('/ip', (request, response) => response.send(request.ip))

@@ -6,7 +6,7 @@ Build Image `docker build . -t sqwid-server`
 
 Run Image `docker run -p 8080:8080 sqwid-server`
 
-Change Env `docker run -p 8080:8080 --env DEFAULT_NETWORK=reef_testnet sqwid-server`
+Change Env `docker run -p 8080:8080 --env NETWORK=reef_testnet sqwid-server`
 _ pass env vars on runtime using --env flag _
 
 ## API docs (not up to date)
