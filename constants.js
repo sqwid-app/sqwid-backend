@@ -1,7 +1,6 @@
-const gql = require ('graphql-tag');
 
 const networks = {
-    reef_testnet: {
+    'reef_testnet': {
         rpc: 'wss://rpc-testnet.reefscan.info/ws',
         contracts: {
             marketplace: '0x31939DF5c6A5ac0b574EDE6E610Fd30c08788A53',
@@ -21,7 +20,7 @@ const networks = {
         graphql_api_explorer: 'https://squid.subsquid.io/reef-explorer-testnet/graphql',
         graphql_api_marketplace: 'https://squid.subsquid.io/sqwid-marketplace-testnet/graphql',
     },
-    reef_mainnet: {
+    'reef_mainnet': {
         rpc: 'wss://rpc.reefscan.info/ws',
         contracts: {
             marketplace: "0xB13Be9656B243600C86922708C20606f5EA89218",
@@ -64,10 +63,16 @@ const config = {
           }
     }
 
+const envNetwork = Object.keys(networks).find(process.env.NETWORK);
+
+if (!envNetwork) {
+    throw new Error('process.env.NETWORK value=', process.env.NETWORK,' not a property name of ', Object.keys(networks));
+}
+
 module.exports = {
     networks,
-    defaultNetwork: process.env.NETWORK || 'reef_mainnet',
+    defaultNetwork: process.env.NETWORK,
     defaultCollectionId: 'ASwOXeRM5DfghnURP4g2',
     TEMP_PATH,
     config,
-}
+};
