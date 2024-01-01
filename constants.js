@@ -63,7 +63,7 @@ const config = {
           }
     }
 
-const envNetwork = Object.keys(networks).find(process.env.NETWORK);
+const envNetwork = Object.keys(networks).find((prop)=>propπ===process.env.NETWORK);
 
 if (!envNetwork) {
     throw new Error('process.env.NETWORK value=', process.env.NETWORK,' not a property name of ', Object.keys(networks));
