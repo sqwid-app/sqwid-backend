@@ -1,4 +1,0 @@
-cron:
-- description: "sync the collectibles in the db with the blockchain"
-  url: /api/sync/collectibles
-  schedule: every 2 hours
