@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "nodemon": "nodemon --no-deprecation ."
+    "dev": "nodemon --no-deprecation index.js"
   },
   "author": "",
   "license": "ISC",
@@ -36,5 +36,8 @@
     "redis": "^4.0.3",
     "sharp": "^0.30.7",
     "typesense": "^1.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }
