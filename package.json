@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "nodemon": "nodemon --no-deprecation ."
+    "dev": "nodemon --no-deprecation index.js"
   },
   "author": "",
   "license": "ISC",
@@ -25,7 +25,7 @@
     "firebase-admin": "^11.2.0",
     "graphql": "^16.7.1",
     "helmet": "^4.6.0",
-    "ipfs-http-client": "56.0.3",
+    "ipfs-http-client": "56.0.2",
     "jsonwebtoken": "^8.5.1",
     "mime-types": "^2.1.35",
     "morgan": "^1.10.0",
@@ -36,5 +36,8 @@
     "redis": "^4.0.3",
     "sharp": "^0.30.7",
     "typesense": "^1.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }
