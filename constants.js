@@ -51,7 +51,7 @@ const config = {
             explorerGraphqlUrl: 'https://squid.subsquid.io/reef-explorer-testnet/graphql',
             marketplaceGraphqlUrl: 'https://squid.subsquid.io/sqwid-marketplace-testnet/graphql',
             pusherEventExplorer: 'block-finalised-testnet',
-            pusherEventMarketplace: 'sqwid-events-emitted-testnet'
+            // pusherEventMarketplace: 'sqwid-events-emitted-testnet'
           },
           mainnet: {
             marketplaceContractAddress: '0xB13Be9656B243600C86922708C20606f5EA89218',
@@ -59,7 +59,7 @@ const config = {
             explorerGraphqlUrl: 'https://squid.subsquid.io/reef-explorer/graphql',
             marketplaceGraphqlUrl: 'https://squid.subsquid.io/sqwid-marketplace/graphql',
             pusherEventExplorer: 'block-finalised',
-            pusherEventMarketplace: 'sqwid-events-emitted'
+            // pusherEventMarketplace: 'sqwid-events-emitted'
           }
     }
 
