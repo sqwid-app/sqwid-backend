@@ -34,7 +34,7 @@ app.use (limiter);
 
 const getRoutes = require ('./routes/index');
 
-app.use ('/', getRoutes ());
+app.use ('/', getRoutes());
 
 // app.get ('/ip', (request, response) => response.send(request.ip))
 
