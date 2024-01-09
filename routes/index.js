@@ -59,9 +59,16 @@ module.exports = () => {
     router.use ('/search', searchRoutes ());
     router.use ('/claim', getEditClaimTransferRoutes ());
 
-    router.get ('/', (req, res) => {
-        res.send ('Sqwid API v1.0.1');
-    });
+    const getHc =  (req, res) => {
+        res.send({
+            network: process.env.NETWORK,
+            name: process.env.npm_package_name,
+            ver: process.env.npm_package_version,
+        })
+    }
+
+    router.get ('/', getHc);
+    router.get ('/hc', getHc);
 
     return router;
 }
