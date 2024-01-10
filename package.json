@@ -1,6 +1,6 @@
 {
   "name": "sqwid-backend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,7 @@
   "dependencies": {
     "@apollo/client": "^3.7.17",
     "@reef-chain/util-lib": "^2.1.4",
-    "@reef-defi/evm-provider": "^1.0.7",
+    "@reef-chain/evm-provider": "^2.0.1",
     "@sqwid/rekognition-wrapper": "^1.0.1",
     "axios": "^0.24.0",
     "console-stamp": "^3.1.2",
