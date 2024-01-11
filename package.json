@@ -1,6 +1,6 @@
 {
   "name": "sqwid-backend",
-  "version": "1.0.2π",
+  "version": "1.0.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -34,6 +34,7 @@
     "nft.storage": "^3.3.0",
     "node-stream-zip": "^1.15.0",
     "redis": "^4.0.3",
+    "rxjs": "^7.8.1",
     "sharp": "^0.30.7",
     "typesense": "^1.4.0"
   },

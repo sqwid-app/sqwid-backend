@@ -12,11 +12,11 @@ const { initIpfs } = require("../../lib/IPFS");
 const multer = require ('multer');
 const { newCollection } = require('../../lib/collection');
 const { getWallet } = require("../../lib/getWallet");
-const getNetwork = require('../../lib/getNetwork');
+const getNetworkConfig = require('../../lib/getNetworkConfig');
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
-const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetworkConfig().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetworkConfig().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 const { getEVMAddress } = require ('../../lib/getEVMAddress');
 const { default: axios } = require("axios");
@@ -96,13 +96,13 @@ const upload = async (inputName) => {
     await zip.close();
     if (numFiles > MAX_ITEMS + 1) {
       fs.rmSync(dir, {recursive: true});
-      return { errorCode: 400, errorMessage: "Zip contains too many files" };  
+      return { errorCode: 400, errorMessage: "Zip contains too many files" };
     }
-    
+
     // Get metadata
     if (!fs.existsSync(`${dir}/media/metadata.csv`)) {
       fs.rmSync(dir, {recursive: true});
-      return { errorCode: 400, errorMessage: "No metadata.csv file found" };  
+      return { errorCode: 400, errorMessage: "No metadata.csv file found" };
     }
     metadataArray = getMetadata(fs.readFileSync(`${dir}/media/metadata.csv`));
     if (metadataArray.errorCode) {
@@ -111,7 +111,7 @@ const upload = async (inputName) => {
     }
     if (metadataArray.length != numFiles - 1) {
       fs.rmSync(dir, {recursive: true});
-      return { errorCode: 400, errorMessage: "CSV file contains wrong number of entries" };  
+      return { errorCode: 400, errorMessage: "CSV file contains wrong number of entries" };
     }
     fs.unlinkSync(`${dir}/media/metadata.csv`);
 
@@ -125,29 +125,29 @@ const upload = async (inputName) => {
 
       if (fs.lstatSync(`${dir}/media/${metadata.originalFileName}`).isDirectory()) {
         fs.rmSync(dir, {recursive: true});
-        return { errorCode: 400, errorMessage: "Zip contains directories" };  
+        return { errorCode: 400, errorMessage: "Zip contains directories" };
       }
 
       if (fs.statSync(`${dir}/media/${metadata.originalFileName}`).size > MAX_FILE_SIZE) {
         fs.rmSync(dir, {recursive: true});
-        return { errorCode: 400, errorMessage: "Zip file contains files too large" };  
+        return { errorCode: 400, errorMessage: "Zip file contains files too large" };
       }
 
       const _mimetype = mime.lookup(`${dir}/media/${metadata.originalFileName}`);
       if (!ALLOWED_MIME_TYPES.includes(_mimetype)) {
         fs.rmSync(dir, {recursive: true});
-        return { errorCode: 400, errorMessage: "Zip contains unsoported file mime types" };  
+        return { errorCode: 400, errorMessage: "Zip contains unsoported file mime types" };
       }
       if (!mimetype) mimetype = _mimetype;
       else if (mimetype !== _mimetype) {
         fs.rmSync(dir, {recursive: true});
-        return { errorCode: 400, errorMessage: "Zip contains mixed file mime types" };  
+        return { errorCode: 400, errorMessage: "Zip contains mixed file mime types" };
       }
 
       fs.renameSync(`${dir}/media/${metadata.originalFileName}`, `${dir}/media/${metadata.fileName}`);
 
       const [thumbnail, small] = await Promise.all([
-        generateThumbnail(`${dir}/media/${metadata.fileName}`), 
+        generateThumbnail(`${dir}/media/${metadata.fileName}`),
         generateSmallSize(`${dir}/media/${metadata.fileName}`)
       ]);
       fs.writeFileSync(`${dir}/thumbnail/${metadata.fileName}`, thumbnail);
@@ -155,7 +155,7 @@ const upload = async (inputName) => {
     };
   } catch (err) {
     fs.rmSync(dir, {recursive: true});
-    return { errorCode: 500, errorMessage: err.message };  
+    return { errorCode: 500, errorMessage: err.message };
   }
 
   // Upload to files to IPFS
@@ -166,7 +166,7 @@ const upload = async (inputName) => {
     uploadToIPFS(`${dir}/thumbnail`)
   ];
   const uploads = await Promise.all(uploadsArray);
-  
+
   // Upload metadata to IPFS
   metadataArray.forEach((met, index) => {
     const metadata = {
@@ -183,18 +183,18 @@ const upload = async (inputName) => {
   const metadataUri = await uploadToIPFS(`${dir}/metadata`);
 
   fs.rmSync(dir, {recursive: true});
-  return { 
-    metadataUri, 
-    numItems: metadataArray.length, 
+  return {
+    metadataUri,
+    numItems: metadataArray.length,
   };
 }
 
 const create = async (req, res, next) => {
   try {
     const collection = await newCollection(
-        req.user.address, 
-        req.body.collectionName, 
-        req.body.collectionDescription, 
+        req.user.address,
+        req.body.collectionName,
+        req.body.collectionDescription,
         req.file
     );
     const uploadRes = await upload(req.body.zipFile + req.ip);
@@ -269,7 +269,7 @@ const verifyItems = async (req, res, next) => {
                   const attributes = meta?.attributes || [];
                   const traits = {};
                   attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
-                  
+
                   if (!meta.mimetype) {
                     const h = await axios.head (getInfuraURL (meta.media));
                     const mimetype = h.headers ['content-type'];
@@ -341,7 +341,7 @@ const verifyItems = async (req, res, next) => {
       //           const attributes = meta?.attributes || [];
       //           const traits = {};
       //           attributes.forEach (attr => traits [`trait:${attr.trait_type.toUpperCase ()}`] = attr.value.toUpperCase ())
-                
+
       //           if (!meta.mimetype) {
       //             const h = await axios.head (getInfuraURL (meta.media));
       //             const mimetype = h.headers ['content-type'];
@@ -388,27 +388,27 @@ const verifyItems = async (req, res, next) => {
 
 const getMetadata = (csv) => {
     const metadataArray = [];
-  
+
     const records = parse(csv, {
       max_record_size: MAX_ITEMS,
       trim: true,
       skip_empty_lines: true,
     });
-  
+
     const columns = records[0];
     if (
       columns.length < 3 ||
       columns[0].toLowerCase() !== "name" ||
       columns[1].toLowerCase() !== "description" ||
-      columns[2].toLowerCase() !== "filename" 
+      columns[2].toLowerCase() !== "filename"
     ) {
       return { errorCode: 400, errorMessage: "Invalid metadata file"};
     }
-  
+
     if (columns.length > MAX_ATTRIBUTES + 3) {
       return { errorCode: 400, errorMessage: "Too many attributes in metadata file"};
     }
-  
+
     let ext;
     for (let i = 1; i < records.length; i++) {
       const name = records[i][0];
@@ -419,7 +419,7 @@ const getMetadata = (csv) => {
       const _ext = fileName.split(".").pop() || "";
       if (ALLOWED_EXTENSIONS.includes(_ext)) {
         if (!ext) ext = _ext;
-        else if (ext !== _ext) 
+        else if (ext !== _ext)
           return { errorCode: 400, errorMessage: "Metadata file contains mixed file extensions"};
       } else {
         return { errorCode: 400, errorMessage: "Metadata file contains unsopported file extensions"};
@@ -432,17 +432,17 @@ const getMetadata = (csv) => {
         fileName: `${hexId(i)}.${ext}`,
         attributes: [],
       };
-  
+
       for (let c = 3; c < columns.length; c++) {
         metadata.attributes.push({
           trait_type: columns[c],
           value: records[i][c],
         });
       }
-  
+
       metadataArray.push(metadata);
     }
-  
+
     return metadataArray;
 }
 

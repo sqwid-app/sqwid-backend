@@ -1,5 +1,5 @@
 require('./polyfills');
-require ('dotenv').config ();
+require('dotenv').config({path:'./.env-sqwid-backend-testnet'});
 const express = require ('express');
 const morgan = require ('morgan');
 const helmet = require ('helmet');
@@ -8,6 +8,7 @@ const app = express ();
 const port = process.env.PORT || 8080;
 const initStatsWatch = require('./lib/initStatswatch');
 const { initAutomod } = require('./lib/automod');
+
 
 const firebase = require ('./lib/firebase');
 const redisClient = require ('./lib/redis');

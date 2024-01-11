@@ -4,7 +4,7 @@ const firebase = require ('../../lib/firebase');
 const { verify } = require ('../../middleware/auth');
 const ethers = require ('ethers');
 const multer = require ('multer');
-const getNetwork = require('../../lib/getNetwork');
+const getNetworkConfig = require('../../lib/getNetworkConfig');
 
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
@@ -16,8 +16,8 @@ const { getInfuraURL } = require('../../lib/getIPFSURL');
 const axios = require ('axios');
 const { getDbCollections, getDbCollectibles } = require('../get/marketplace');
 
-const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const collectibleContract = (signerOrProvider, address = null) => new ethers.Contract (address || getNetworkConfig().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetworkConfig().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 
 const { syncTraitsToCollection } = require('../../lib/synctraits');
 const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
@@ -31,7 +31,7 @@ const verifyItem = async (req, res, next) => {
     const tokenContract = collectibleContract (provider);
     const { id, collection } = req.body;
     const collectionId = collection || 'ASwOXeRM5DfghnURP4g2';
-    
+
     const creatorPromise = getEVMAddress (req.user.address);
     const collectionDocPromise = getDbCollections ([collectionId]);
     const collectiblePromise = getDbCollectibles ([id]);
@@ -148,9 +148,9 @@ let upload = async (req, res, next) => {
                 else {
                     const thumbnailPromise = generateThumbnail (cover.buffer);
                     const smallSizePromise = generateSmallSize (cover.buffer);
-    
+
                     const [thumbnail, small] = await Promise.all ([thumbnailPromise, smallSizePromise]);
-    
+
                     uploadsArray = [uploadToIPFS (thumbnail), uploadToIPFS (small), uploadToIPFS (cover.buffer)];
                     if (req.files.coverData) uploadsArray.push (uploadToIPFS (file.buffer));
                 }

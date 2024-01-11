@@ -1,6 +1,8 @@
+const TESTNET = 'reef_testnet';
+const MAINNET = 'reef_mainnet';
 
 const networks = {
-    'reef_testnet': {
+    [TESTNET]: {
         rpc: 'wss://rpc-testnet.reefscan.com/ws',
         contracts: {
             marketplace: '0x31939DF5c6A5ac0b574EDE6E610Fd30c08788A53',
@@ -20,7 +22,7 @@ const networks = {
         graphql_api_explorer: 'https://squid.subsquid.io/reef-explorer-testnet/graphql',
         graphql_api_marketplace: 'https://squid.subsquid.io/sqwid-marketplace-testnet/graphql',
     },
-    'reef_mainnet': {
+    [MAINNET]: {
         rpc: 'wss://rpc.reefscan.com/ws',
         contracts: {
             marketplace: "0xB13Be9656B243600C86922708C20606f5EA89218",
@@ -71,4 +73,6 @@ module.exports = {
     defaultCollectionId: 'ASwOXeRM5DfghnURP4g2',
     TEMP_PATH,
     config,
+    TESTNET,
+    MAINNET
 };

@@ -1,8 +1,8 @@
 const { Router } = require('express');
-const getNetwork = require('../../lib/getNetwork');
+const getNetworkConfig = require('../../lib/getNetworkConfig');
 const typesense = require ('../../lib/typesense');
 const { getDbCollections } = require('./marketplace');
-const net = getNetwork ();
+const net = getNetworkConfig();
 
 const searchUsers = async (req, res) => {
     const { identifier } = req.params;
@@ -78,7 +78,7 @@ module.exports = {
         router.get ('/users/:identifier', searchUsers);
         router.get ('/collections/:identifier', searchCollections);
         router.get ('/all/:identifier', searchAll);
-        
+
         return router;
     }
 }

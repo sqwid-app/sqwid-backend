@@ -5,13 +5,13 @@ const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 const multicallContractABI = require ('../../contracts/Multicall3').ABI;
 const { getWallet } = require ('../../lib/getWallet');
-const getNetwork = require ('../../lib/getNetwork');
+const getNetworkConfig = require ('../../lib/getNetworkConfig');
 const firebase = require ('../../lib/firebase');
 const { FieldPath } = require ('firebase-admin').firestore;
 const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cacheCollections, fetchCachedNames, cacheNames } = require('../../lib/caching');
-const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
-const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwork ().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
-const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetwork ().contracts ['multicall'], multicallContractABI, signerOrProvider);
+const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetworkConfig().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
+const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetworkConfig().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
+const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetworkConfig().contracts ['multicall'], multicallContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
 const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionsByStateQuery, bidsByBidder } = require('../../lib/graphqlApi');
@@ -235,15 +235,15 @@ const fetchPosition = async (req, res) => {
         const position = await marketplaceContract.fetchPosition (positionId);
 
         if (!Number (position.amount)) return res?.status (404).send ({ error: 'Position does not exist.' });
-        
+
         let collectibleData = await getDbCollectibles ([Number (position.itemId)]);
 
         if (!collectibleData.length) throw new Error (`Collectible does not exist.`);
-        
+
         collectibleData = collectibleData [0];
 
         const item = await marketplaceContract.fetchItem (position.itemId);
-        
+
         let auctionData, raffleData, loanData = null;
         const addressesNameSearch = [item.creator, position.owner];
         switch (position.state) {
@@ -376,9 +376,9 @@ const getNamesByEVMAddresses = async (addresses) => {
         .map (chunk => chunk.value.docs)
         .reduce ((acc, curr) => [...acc, ...curr], [])
         .map (doc => { return { name: doc.data ().displayName, address: doc.data ().evmAddress }});
-    
+
     cacheNames (fResult);
-    
+
     return cached.concat (fResult);
 }
 
@@ -404,7 +404,7 @@ const buildObjectsFromPositions = async (positions, additionalNamesSearch) => {
     names.forEach (name => {
         namesObj = { ...namesObj, [name.address]: name.name };
     });
-    
+
     return {
         collectibles: collectiblesObject,
         collections: collectionsObject,
@@ -661,7 +661,7 @@ const fetchPositions = async (req, res) => {
         } else {
             searchItemIds = new Set (approvedIds.map (item => item.id));
         }
-        
+
         if (!Array.from (searchItemIds).length) return res.status (200).json ({
             items: [],
             pagination: {
@@ -822,7 +822,7 @@ const fetchBidsByOwner = async (req, res) => {
             (page - 1) * pageSize,
             pageSize
         ));
-        
+
         const metas = await getDbCollectibles (response.bids.map (bid => bid.itemId));
         let bids = response.bids.map ((bid, i) => {
             return {
