@@ -12,15 +12,17 @@
   "license": "ISC",
   "dependencies": {
     "@apollo/client": "^3.7.17",
-    "@reef-chain/util-lib": "^2.1.4",
+    "@polkadot/api": "^10.11.2",
+    "@polkadot/types-known": "^10.11.2",
     "@reef-chain/evm-provider": "^2.0.1",
+    "@reef-chain/util-lib": "^2.1.7",
     "@sqwid/rekognition-wrapper": "^1.0.1",
     "axios": "^0.24.0",
     "console-stamp": "^3.1.2",
     "cors": "^2.8.5",
     "cross-fetch": "^4.0.0",
     "csv-parse": "^5.3.0",
-    "dotenv": "^10.0.0",
+    "dotenv": "^16.3.1",
     "express": "^4.17.1",
     "express-rate-limit": "^6.2.0",
     "firebase-admin": "^11.2.0",
@@ -31,7 +33,6 @@
     "mime-types": "^2.1.35",
     "morgan": "^1.10.0",
     "multer": "^1.4.3",
-    "nft.storage": "^3.3.0",
     "node-stream-zip": "^1.15.0",
     "redis": "^4.0.3",
     "rxjs": "^7.8.1",
@@ -40,5 +41,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
+  },
+  "resolutions": {
+    "@polkadot/api": "^10.11.2"
   }
 }
