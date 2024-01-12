@@ -1,6 +1,6 @@
 {
   "name": "sqwid-backend",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -41,8 +41,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
-  },
-  "resolutions": {
-    "@polkadot/api": "^10.11.2"
   }
 }
