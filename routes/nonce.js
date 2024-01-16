@@ -18,7 +18,7 @@ let nonce = (req, res) => {
             let nonce = generateNonce ();
             const { provider } = await getWallet ();
             let evmAddress
-            
+
             try {
                 evmAddress = await provider.api.query.evmAccounts.evmAddresses (req.query.address);
                 evmAddress = (0, ethers.utils.getAddress) (evmAddress.toString ());
@@ -37,7 +37,7 @@ let nonce = (req, res) => {
                     nonce
                 });
             }).catch ((err) => {
-                console.log (err);
+                console.log ('routes/nonce ERR=',err);
             });
         }
     })

@@ -14,7 +14,7 @@ firebase.collection ('collectibles').get ().then (querySnapshot => {
                 }, { merge: true });
                 console.log (`backfilled ${doc.id}`);
             } catch (err) {
-                console.log (err);
+                console.log ('backfill-traits ERR=',err);
             }
         }
     });

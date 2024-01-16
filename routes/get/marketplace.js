@@ -311,7 +311,7 @@ const fetchPosition = async (req, res) => {
         res?.status (200).json (itemObject);
         return itemObject;
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 1 ERR=',err);
         res?.json ({
             error: err.toString ()
         });
@@ -617,7 +617,7 @@ const fetchSummary = async (_req, res) => {
             ...newObject
         });
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 2 ERR=',err);
         res.json ({
             error: err.toString ()
         });
@@ -635,7 +635,7 @@ const fetchFeatured = async (_req, res) => {
             featured
         });
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 3 ERR=',err);
         res.json ({
             error: err.toString ()
         });
@@ -774,7 +774,7 @@ const fetchPositions = async (req, res) => {
             }
         });
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 4 ERR=',err);
         res.json ({
             error: err.toString ()
         });
@@ -789,7 +789,7 @@ const fetchBalance = async (req, res) => {
             balance
         });
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 5 ERR=',err);
         res.json ({
             error: err.toString ()
         });
@@ -805,7 +805,7 @@ const fetchWithdrawable = async (req, res) => {
             balance
         });
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 6 ERR=',err);
         res.json ({
             error: err.toString ()
         });
@@ -840,7 +840,7 @@ const fetchBidsByOwner = async (req, res) => {
             }
         });
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 7 ERR=',err);
         res.json ({
             error: err.toString ()
         });
@@ -853,7 +853,7 @@ const fetchClaimable = async (req, res) => {
         const claimable = await getClaimableItems (evmAddress);
         res.status (200).json (claimable);
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 8 ERR=',err);
         res.status (404).json ({
             error: err.toString ()
         });
@@ -868,7 +868,7 @@ const fetchClaimableCount = async (req, res) => {
             count
         });
     } catch (err) {
-        console.log (err);
+        console.log ('marketplace 9 ERR=',err);
         res.status (404).json ({
             error: err.toString ()
         });

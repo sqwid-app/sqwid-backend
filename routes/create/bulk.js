@@ -259,7 +259,7 @@ const verifyItems = async (req, res, next) => {
                       const response = await axios (getInfuraURL(ipfsURI));
                       meta = response.data;
                   } catch (err) {
-                      console.log (err);
+                      console.log ('bulk 1 ERR=',err);
                   }
 
                   if (!meta.name) return res.status (400).json ({
@@ -318,7 +318,7 @@ const verifyItems = async (req, res, next) => {
       //     await new Promise (resolve => setTimeout (resolve, 1000));
       //   }
       // } catch (err) {
-      //   console.log (err);
+      //   console.log ('bulk 2 ERR=',err);
       // }
       // await Promise.all(itemIds.map(async (id) => {
       //   try {
@@ -331,7 +331,7 @@ const verifyItems = async (req, res, next) => {
       //               const response = await axios (getInfuraURL(ipfsURI));
       //               meta = response.data;
       //           } catch (err) {
-      //               console.log (err);
+      //               console.log ('bulk 3 ERR=',err);
       //           }
 
       //           if (!meta.name) return res.status (400).json ({

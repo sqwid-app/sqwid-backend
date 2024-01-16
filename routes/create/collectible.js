@@ -51,7 +51,7 @@ const verifyItem = async (req, res, next) => {
                     const response = await axios (getInfuraURL (ipfsURI));
                     meta = response.data;
                 } catch (err) {
-                    console.log (err);
+                    console.log ('create/collectible ERR=',err);
                 }
 
                 if (!meta.name) return res.status (400).json ({

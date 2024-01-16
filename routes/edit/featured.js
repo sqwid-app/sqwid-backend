@@ -55,7 +55,7 @@ const updateFeatured = async (req, res) => {
             });
         }
     } catch (err) {
-        console.log (err);
+        console.log ('featured ERR=',err);
         res.json ({
             error: err.toString ()
         });
@@ -67,6 +67,6 @@ module.exports = () => {
     const router = Router ();
 
     router.post ('/', verify, updateFeatured);
-    
+
     return router;
 }
