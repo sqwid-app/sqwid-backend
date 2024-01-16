@@ -5,7 +5,7 @@ const morgan = require ('morgan');
 // const helmet = require ('helmet');
 const rateLimit = require ('express-rate-limit')
 const app = express ();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 80;
 const initStatsWatch = require('./lib/initStatswatch');
 const { initAutomod } = require('./lib/automod');
 

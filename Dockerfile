@@ -7,6 +7,6 @@ WORKDIR /usr/server
 COPY package.json yarn.lock ./
 RUN yarn install
 COPY . ./
-EXPOSE 8080
+EXPOSE 80
 
 ENTRYPOINT ["yarn", "start"]
