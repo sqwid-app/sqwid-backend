@@ -40,7 +40,7 @@ setTimeout (() => {
                 }, { merge: true })
             });
         } catch (e) {
-            console.log (e);
+            console.log ('backfill-collections 1 ERR=',e);
         }
     });
 }, 3000);

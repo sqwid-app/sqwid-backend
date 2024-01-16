@@ -29,7 +29,7 @@ const deleteCollection = async (req, res) => {
                 return res.status (400).json ({ error: 'Collection has collectibles' });
             }
         } catch (e) {
-            console.log (e);
+            console.log ('edit/collection 1 ERR=',e);
             return res.status (500).send ('Error deleting collection');
         }
     } else {
@@ -56,7 +56,7 @@ const updateCollection = async (req, res) => {
             }, { merge: true });
             return res.status (200).json ({ success: true });
         } catch (e) {
-            console.log (e);
+            console.log ('edit/collection 2 ERR=',e);
             return res.status (500).send ('Error updating collection');
         }
     } else {
@@ -89,7 +89,7 @@ const updateCollectionImage = async (req, res) => {
 
             return res.status (200).json ({ success: true });
         } catch (e) {
-            console.log (e);
+            console.log ('edit/collection 3 ERR=',e);
             return res.status (500).send ('Error updating collection image');
         }
     } else {
@@ -103,6 +103,6 @@ module.exports = () => {
     router.post ('/delete/:collectionId', verify, deleteCollection);
     router.post ('/id/:collectionId/info', verify, updateCollection);
     router.post ('/id/:collectionId/image', [verify, imageUpload.single ("fileData")], updateCollectionImage);
-    
+
     return router;
 }

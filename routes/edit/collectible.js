@@ -56,7 +56,7 @@ const moveToCollection = async (req, res) => {
                         syncTraitsToCollection (collectionId, traits)
                     ]);
                 } catch (e) {
-                    console.log (e);
+                    console.log ('edit/collectible ERR=',e);
                     return res.status (500).send ('Error updating collectible');
                 }
                 return res.status (200).send ('Collectible updated');
@@ -77,6 +77,6 @@ module.exports = () => {
     const router = Router ();
 
     router.post ('/collection', verify, moveToCollection);
-    
+
     return router;
 }

@@ -31,7 +31,7 @@ const getUser = async (req, res) => {
     try {
         user = await Promise.all ([userBySubstrateAddress, userByEvmAddress]);
     } catch (e) {
-        console.log (e);
+        console.log ('get/user ERR=',e);
         res?.status (500).json ({ error: 'Internal server error' });
         return null;
     }
@@ -51,6 +51,7 @@ const getUser = async (req, res) => {
         // res?.json (data);
         // return data;
     }
+    console.log('getUser=',response);
     res?.json (response);
     return response;
 }
@@ -60,7 +61,7 @@ module.exports = {
         const router = Router ();
 
         router.get ('/:identifier', getUser);
-        
+
         return router;
     },
     getUser
