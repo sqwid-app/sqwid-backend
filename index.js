@@ -2,7 +2,7 @@ require('./polyfills');
 require('dotenv').config({path:'./.env-sqwid-backend-testnet'});
 const express = require ('express');
 const morgan = require ('morgan');
-const helmet = require ('helmet');
+// const helmet = require ('helmet');
 const rateLimit = require ('express-rate-limit')
 const app = express ();
 const port = process.env.PORT || 8080;
@@ -27,7 +27,7 @@ const cors = require ('cors');
 
 app.set ('trust proxy', 2);
 app.use (morgan ('dev'));
-app.use (helmet ());
+// app.use (helmet ());
 app.use (cors ({origin: '*'}));
 app.use (express.json ({ limit: "100mb" }));
 app.use (express.urlencoded ({extended: true, limit: "100mb"}));
