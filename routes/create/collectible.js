@@ -128,7 +128,6 @@ const mediaUpload = multer ({
 });
 
 let upload = async (req, res, next) => {
-    res.setHeader ('Access-Control-Allow-Origin', '*');
     const cover = req.files.coverData ? req.files.coverData [0] : req.files.fileData [0];
     const file = (req.files.coverData && (req.files.coverData [0] === req.files.fileData [0])) ? null : req.files.fileData [0];
 
