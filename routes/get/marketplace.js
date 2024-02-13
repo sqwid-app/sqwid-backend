@@ -849,8 +849,8 @@ const fetchBidsByOwner = async (req, res) => {
 
 const fetchClaimable = async (req, res) => {
     const { evmAddress } = req.user;
+    console.log('fetchClaimable addr=',evmAddress, req.user);
     if(!evmAddress){
-        console.log('fetchClaimable u=',req.user);
         res.status(400)
         return;
     }
