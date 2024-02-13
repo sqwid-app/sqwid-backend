@@ -192,7 +192,7 @@ let upload = async (req, res, next) => {
 
 module.exports = () => {
     const router = Router ();
-    router.use (cors ());
+    // router.use (cors ());
 
     router.post ('/verify', verify, verifyItem);
     router.post ('/upload', verify, mediaUpload.fields ([{ name: 'coverData', maxCount: 1 }, { name: 'fileData', maxCount: 1 }]), upload);

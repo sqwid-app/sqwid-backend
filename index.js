@@ -23,7 +23,7 @@ const limiter = rateLimit ({
 	legacyHeaders: false,
 })
 
-const cors = require ('cors');
+// const cors = require ('cors');
 
 app.set ('trust proxy', 2);
 app.use (morgan ('dev'));
