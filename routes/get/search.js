@@ -48,8 +48,13 @@ const searchCollections = async (req, res) => {
 
 const searchAll = async (req, res) => {
     const { identifier } = req.params;
-    let result = await typesense.multiSearch.perform ({
-        searches: [{
+    let result = {
+        users: [],
+        collections: []
+    }
+    try {
+        let result = await typesense.multiSearch.perform({
+            searches: [{
                 collection: net.typesense.collections ['users'],
                 q: identifier,
                 query_by: 'displayName,evmAddress,address',
@@ -60,13 +65,16 @@ const searchAll = async (req, res) => {
                 q: identifier,
                 query_by: 'name',
                 limit_hits: 3
-        }]
-    }, {
-        per_page: 3
-    });
-    result = {
-        users: result.results[0].hits.map (hit => hit.document),
-        collections: result.results[1].hits.map (hit => hit.document)
+            }]
+        }, {
+            per_page: 3
+        });
+        result = {
+            users: result.results[0].hits.map (hit => hit.document),
+            collections: result.results[1].hits.map (hit => hit.document)
+        }
+    } catch (e) {
+        console.log('ERROR searchAll=',e.message);
     }
     res.json (result);
 }
