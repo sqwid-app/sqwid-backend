@@ -365,7 +365,7 @@ const getDbCollections = async (items) => {
 const getNamesByEVMAddresses = async (addresses) => {
     const { cached, leftoverItems } = await fetchCachedNames (addresses);
     if (leftoverItems.length === 0) return cached;
-    addresses = leftoverItems;
+    addresses = leftoverItems.filter(v=>!!v);
 
     const usersRef = firebase.collection ('users');
     const chunks = sliceIntoChunks (addresses, 10);
