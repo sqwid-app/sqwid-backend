@@ -128,7 +128,6 @@ const mediaUpload = multer ({
 });
 
 let upload = async (req, res, next) => {
-    res.setHeader ('Access-Control-Allow-Origin', '*');
     const cover = req.files.coverData ? req.files.coverData [0] : req.files.fileData [0];
     const file = (req.files.coverData && (req.files.coverData [0] === req.files.fileData [0])) ? null : req.files.fileData [0];
 
@@ -193,7 +192,7 @@ let upload = async (req, res, next) => {
 
 module.exports = () => {
     const router = Router ();
-    router.use (cors ());
+    // router.use (cors ());
 
     router.post ('/verify', verify, verifyItem);
     router.post ('/upload', verify, mediaUpload.fields ([{ name: 'coverData', maxCount: 1 }, { name: 'fileData', maxCount: 1 }]), upload);

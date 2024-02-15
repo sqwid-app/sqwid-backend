@@ -471,7 +471,7 @@ setInterval(() => {
 
 module.exports = () => {
   const router = Router ();
-  router.use (cors ());
+  // router.use (cors ());
 
   router.post ('/verify', verify, verifyItems);
   router.post ('/upload-chunk', verify, uploadChunk);
