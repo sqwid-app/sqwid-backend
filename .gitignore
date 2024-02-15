@@ -7,3 +7,4 @@ yarn.lock
 temp-uploads
 .idea
 .yalc
+.env-sqwid-backend-testnet

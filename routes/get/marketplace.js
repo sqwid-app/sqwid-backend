@@ -491,9 +491,10 @@ const getClaimableItemsCount = async (address) => {
         .where ('claimed', '==', false)
         .where ('owner', '==', address)
         .where ('amount', '>', 0)
-        .count ()
         .get ();
-    return snapshot.data ().count;
+        let data = snapshot.docs.map(doc => doc.data());
+        const filteredClaimables = data.filter (item => approvedIds.find (i => i.id === Number (item.itemId)));
+    return filteredClaimables.length;
 }
 
 const grabItemsWithTraits = async (traits, collectionId) => {
