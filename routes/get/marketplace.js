@@ -486,6 +486,16 @@ const getClaimableItems = async (address) => {
     return results;
 }
 
+const isWhitelistedItem = async(req,res)=>{
+    try {
+        const isApproved = approvedIds.find(i => i.id === Number (req.params.id))
+        return res.send(isApproved ? true:false);
+    } catch (error) {
+        console.log("isWhitelistedItem ERR===",error);
+        return res.send(false);
+    }
+}
+
 const getClaimableItemsCount = async (address) => {
     let snapshot = await firebase.collection ('claims')
         .where ('claimed', '==', false)
@@ -922,6 +932,7 @@ module.exports = {
         const router = Router ();
         router.get ('/featured', fetchFeatured);
         router.get ('/summary', fetchSummary);
+        router.get ('/is-whitelisted/:id', isWhitelistedItem);
         router.get ('/all/:type', fetchPositions);
         router.get ('/by-owner/:ownerAddress/:type', fetchPositions);
         router.get ('/by-collection/:collectionId/:type', fetchPositions);
