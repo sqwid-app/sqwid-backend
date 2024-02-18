@@ -21,6 +21,7 @@ const limiter = rateLimit ({
 	max: 60, // Limit each IP to 60 requests per `window`
 	standardHeaders: true,
 	legacyHeaders: false,
+	statusCode: 429
 })
 
 app.set ('trust proxy', 2);
@@ -36,7 +37,7 @@ app.use (express.raw ({ type: "application/octet-stream", limit: "50mb" }));
 app.use (limiter);
 
 const getRoutes = require ('./routes/index');
-const cors = require("cors");
+// const cors = require("cors");
 
 app.use ('/', getRoutes());
 
@@ -47,6 +48,11 @@ app.use(function (err, req, res, next) {
 	res.status(500).send('Something broke!');
 });
 
-app.listen (port, () => {
+const server = app.listen (port, () => {
     console.log (`Listening on port ${port}`);
 });
+
+// Ensure all inactive connections are terminated by the proxy, by setting this a few seconds higher than the proxy idle timeout
+server.keepAliveTimeout = 77000;
+// Ensure the headersTimeout is set higher than the keepAliveTimeout due to this nodejs regression bug: https://github.com/nodejs/node/issues/27363
+server.headersTimeout = 78000;
