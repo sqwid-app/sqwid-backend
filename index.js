@@ -11,7 +11,7 @@ const { initAutomod } = require('./lib/automod');
 
 
 const firebase = require ('./lib/firebase');
-const redisClient = require ('./lib/redis');
+// const redisClient = require ('./lib/redis');
 
 initStatsWatch();
 initAutomod();
@@ -37,11 +37,8 @@ app.use (express.raw ({ type: "application/octet-stream", limit: "50mb" }));
 app.use (limiter);
 
 const getRoutes = require ('./routes/index');
-// const cors = require("cors");
 
 app.use ('/', getRoutes());
-
-// app.get ('/ip', (request, response) => response.send(request.ip))
 
 app.use(function (err, req, res, next) {
 	console.log('app.use ERR=', err.stack);
