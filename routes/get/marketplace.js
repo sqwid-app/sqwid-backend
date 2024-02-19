@@ -488,8 +488,8 @@ const getClaimableItems = async (address) => {
 
 const isWhitelistedItem = async(req,res)=>{
     try {
-        const isApproved = approvedIds.find(i => i.id === Number (req.params.id))
-        return res.send(isApproved ? true:false);
+        const isApproved = !!approvedIds.find(i => i.id === Number (req.params.id))
+        return res.send(isApproved);
     } catch (error) {
         console.log("isWhitelistedItem ERR===",error);
         return res.send(false);
@@ -503,7 +503,7 @@ const getClaimableItemsCount = async (address) => {
         .where ('amount', '>', 0)
         .get ();
         let data = snapshot.docs.map(doc => doc.data());
-        const filteredClaimables = data.filter (item => approvedIds.find (i => i.id === Number (item.itemId)));
+        const filteredClaimables = data.filter (item => approvedIds.find (i => i.id === Number (item.nftId)));
     return filteredClaimables.length;
 }
 
