@@ -860,7 +860,6 @@ const fetchBidsByOwner = async (req, res) => {
 
 const fetchClaimable = async (req, res) => {
     const { evmAddress } = req.user;
-    console.log('fetchClaimable addr=',evmAddress, req.user);
     if(!evmAddress){
         res.status(400)
         return;
@@ -878,10 +877,8 @@ const fetchClaimable = async (req, res) => {
 
 const fetchClaimableCount = async (req, res) => {
     const { evmAddress } = req.user;
-    console.log('GET CLAIMABLE COUNT=',evmAddress);
     try {
         const count = await getClaimableItemsCount (evmAddress);
-        console.log('GET CLAIMABLE COUNT RES=',count);
         res.status (200).json ({
             count
         });
