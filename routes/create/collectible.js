@@ -196,7 +196,7 @@ module.exports = () => {
 
     router.post ('/verify', verify, verifyItem);
     router.post ('/upload', verify,
-        function (req, res, next) {
+        /*function (req, res, next) {
             mediaUpload.fields ([{ name: 'coverData', maxCount: 1 }, { name: 'fileData', maxCount: 1 }])(req, res, function (err) {
                 if (err instanceof multer.MulterError) {
                     // A Multer error occurred when uploading.
@@ -206,7 +206,7 @@ module.exports = () => {
                     console.log('upload ERR=',err);
                 }
                 next();
-            })},
+            })},*/
         upload);
 
     return router;
