@@ -27,7 +27,7 @@ initAutomod();
 app.set ('trust proxy', 2);
 app.use (morgan ('dev'));
 app.use (helmet ());
-if (process.env.ENABLE_CORS) {
+if (process.env.ENABLE_CORS==='true') {
 	const cors = require ('cors');
 	app.use (cors ());
 }
