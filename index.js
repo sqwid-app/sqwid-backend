@@ -1,5 +1,5 @@
 require('./polyfills');
-require('dotenv').config({path:'./.env-sqwid-backend-testnet'});
+require('dotenv').config({path:'./.env-sqwid-backend-testnet-dev'});
 const express = require ('express');
 const morgan = require ('morgan');
 const helmet = require ('helmet');
