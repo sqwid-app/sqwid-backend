@@ -22,6 +22,7 @@ const marketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwor
 const { syncTraitsToCollection } = require('../../lib/synctraits');
 const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile');
 const { initIpfs } = require('../../lib/IPFS');
+const constants = require("../../constants");
 
 const skipModeration = process.env.SKIP_MODERATION === 'true';
 
@@ -120,8 +121,17 @@ const uploadToIPFS = async file => {
     return addedFile.path;
 }
 
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, constants.TEMP_PATH) //Destination folder
+    },
+    filename: function (req, file, cb) {
+        cb(null, file.originalname) //File name after saving
+    }
+})
+
 const mediaUpload = multer ({
-    storage: multer.memoryStorage(),
+    storage: storage,//multer.memoryStorage(),
     /*limits: {
         fileSize: 100000000
     },*/
