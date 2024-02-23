@@ -2,7 +2,6 @@ const { parse } = require("csv-parse/sync");
 const { Router } = require("express");
 const cors = require ('cors');
 const { verify } = require("../../middleware/auth");
-const fs = require("fs");
 const ethers = require("ethers");
 const StreamZip = require("node-stream-zip");
 const ipfsClient = require ('ipfs-http-client');

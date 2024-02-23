@@ -1,5 +1,12 @@
 require('./polyfills');
 require('dotenv').config({path:'./.env-sqwid-backend-testnet-dev'});
+const constants = require('./constants');
+const fs = require("fs");
+
+if (!fs.existsSync(constants.TEMP_PATH)) {
+	fs.mkdirSync(constants.TEMP_PATH);
+}
+
 const express = require ('express');
 const morgan = require ('morgan');
 const helmet = require ('helmet');
@@ -8,6 +15,8 @@ const app = express ();
 const port = process.env.PORT || 80;
 const initStatsWatch = require('./lib/initStatswatch');
 const { initAutomod } = require('./lib/automod');
+
+
 
 
 const firebase = require ('./lib/firebase');
@@ -37,6 +46,7 @@ app.use (express.raw ({ type: "application/octet-stream", limit: "50mb" }));
 // app.use (limiter);
 
 const getRoutes = require ('./routes/index');
+const {TEMP_PATH} = require("./constants");
 
 app.use ('/', getRoutes());
 
