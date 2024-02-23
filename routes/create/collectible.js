@@ -122,9 +122,9 @@ const uploadToIPFS = async file => {
 
 const mediaUpload = multer ({
     storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 10000000000000
-    },
+    /*limits: {
+        fileSize: 100000000
+    },*/
 });
 
 let upload = async (req, res, next) => {
@@ -195,18 +195,9 @@ module.exports = () => {
     // router.use (cors ());
 
     router.post ('/verify', verify, verifyItem);
-    router.post ('/upload', verify,
-        /*function (req, res, next) {
-            mediaUpload.fields ([{ name: 'coverData', maxCount: 1 }, { name: 'fileData', maxCount: 1 }])(req, res, function (err) {
-                if (err instanceof multer.MulterError) {
-                    // A Multer error occurred when uploading.
-                    console.log('multer ERR=',err);
-                } else if (err) {
-                    // An unknown error occurred when uploading.
-                    console.log('upload ERR=',err);
-                }
-                next();
-            })},*/
+    router.post ('/upload',
+        verify,
+        mediaUpload.fields ([{ name: 'coverData', maxCount: 1 }, { name: 'fileData', maxCount: 1 }]),
         upload);
 
     return router;
