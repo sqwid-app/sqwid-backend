@@ -131,7 +131,7 @@ const storage = multer.diskStorage({
 })
 
 const mediaUpload = multer ({
-    storage: storage,//multer.memoryStorage(),
+    storage: multer.memoryStorage(),//storage,//
     /*limits: {
         fileSize: 100000000
     },*/
