@@ -751,7 +751,10 @@ const fetchPositions = async (req, res) => {
                 const lenderName = names [position.loanData.lender.address] || position.loanData.lender.address;
                 position.loanData.lender.name = lenderName || position.loanData.lender.address;
             }
-            console.log('POS id=',position.itemId.toString(), ' meta=',collectibles[position.itemId.toString()]?.meta, ' id=',position.id,position.positionId);
+            if (!collectibles[position.itemId.toString()]) {
+                console.log('POS id=',position.itemId.toString(), ' meta=',collectibles[position.itemId.toString()]?.meta, ' id=',position.itemId,position.positionId,position.tokenId);
+                continue;
+            }
             positions.push ({
                 positionId: position.positionId,
                 itemId: position.itemId,
