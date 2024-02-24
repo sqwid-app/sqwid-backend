@@ -619,7 +619,7 @@ const fetchSummary = async (_req, res) => {
                 loan: position.loanData,
                 marketFee: position.marketFee,
                 state: position.state,
-                meta: collectibles [position.itemId.toString ()].meta,
+                meta: collectibles [position.itemId.toString ()]?.meta,
             }
             newObject [keys [position.state - 1]].push (positionObject);
         });
@@ -751,7 +751,7 @@ const fetchPositions = async (req, res) => {
                 const lenderName = names [position.loanData.lender.address] || position.loanData.lender.address;
                 position.loanData.lender.name = lenderName || position.loanData.lender.address;
             }
-
+            console.log('POS id=',position.itemId.toString(), ' meta=',collectibles[position.itemId.toString()]?.meta, ' id=',position.id,position.positionId);
             positions.push ({
                 positionId: position.positionId,
                 itemId: position.itemId,
@@ -774,7 +774,7 @@ const fetchPositions = async (req, res) => {
                 loan: position.loanData,
                 marketFee: position.marketFee,
                 state: state,
-                meta: collectibles [position.itemId.toString ()].meta,
+                meta: collectibles[position.itemId.toString ()]?.meta,
             });
         }
         res.status (200).json ({
