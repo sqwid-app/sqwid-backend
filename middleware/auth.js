@@ -17,3 +17,10 @@ exports.verify = (req, res, next) => {
         res.status (403).send ('Invalid token.');
     }
 }
+
+exports.log = (req, res, next) => {
+
+    // const authHeader = req.headers
+    console.log('REQ LOG=',req.path);
+    next();
+}

@@ -1,7 +1,7 @@
 const { Router } = require ('express');
 const { FieldValue } = require ('firebase-admin').firestore;
 const firebase = require ('../../lib/firebase');
-const { verify } = require ('../../middleware/auth');
+const { verify, log} = require ('../../middleware/auth');
 const ethers = require ('ethers');
 const multer = require ('multer');
 const getNetworkConfig = require('../../lib/getNetworkConfig');
@@ -121,14 +121,14 @@ const uploadToIPFS = async file => {
     return addedFile.path;
 }
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, constants.TEMP_PATH) //Destination folder
-    },
-    filename: function (req, file, cb) {
-        cb(null, file.originalname) //File name after saving
-    }
-})
+// const storage = multer.diskStorage({
+//     destination: function (req, file, cb) {
+//         cb(null, constants.TEMP_PATH) //Destination folder
+//     },
+//     filename: function (req, file, cb) {
+//         cb(null, file.originalname) //File name after saving
+//     }
+// })
 
 const mediaUpload = multer ({
     storage: multer.memoryStorage(),//storage,//
@@ -138,6 +138,7 @@ const mediaUpload = multer ({
 });
 
 let upload = async (req, res, next) => {
+
     const cover = req.files.coverData ? req.files.coverData [0] : req.files.fileData [0];
     const file = (req.files.coverData && (req.files.coverData [0] === req.files.fileData [0])) ? null : req.files.fileData [0];
 
@@ -206,6 +207,7 @@ module.exports = () => {
 
     router.post ('/verify', verify, verifyItem);
     router.post ('/upload',
+        log,
         verify,
         //mediaUpload.fields ([{ name: 'coverData', maxCount: 1 }, { name: 'fileData', maxCount: 1 }]),
         upload);
