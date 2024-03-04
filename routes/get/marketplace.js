@@ -932,11 +932,10 @@ const automodHealth = async (req, res) => {
 const getCollectionCount = async(req,res)=>{
     try {
         const {owner,positionId} = req.params;
-    const response = await doQuery(getCollectionAmountFromUser(owner,toIndexerId(positionId)))
-    console.log(toIndexerId(positionId))
-    return res.send(response)
+    	const response = await doQuery(getCollectionAmountFromUser(owner,toIndexerId(positionId)));
+    	return res.send(response)
     } catch (error) {
-        console.log("getCollectionCount===",error);
+        console.log("getCollectionCount ERR=",error);
         return res.status(200).send([{amount:0}])
     }
 }
