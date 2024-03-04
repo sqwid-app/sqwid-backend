@@ -14,7 +14,7 @@ const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetwor
 const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetworkConfig().contracts ['multicall'], multicallContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionsByStateQuery, bidsByBidder } = require('../../lib/graphqlApi');
+const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionsByStateQuery, bidsByBidder, getCollectionAmountFromUser, toIndexerId } = require('../../lib/graphqlApi');
 let provider, marketplaceContract, collectibleContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
@@ -929,6 +929,18 @@ const automodHealth = async (req, res) => {
     }
 }
 
+const getCollectionCount = async(req,res)=>{
+    try {
+        const {owner,positionId} = req.params;
+    const response = await doQuery(getCollectionAmountFromUser(owner,toIndexerId(positionId)))
+    console.log(toIndexerId(positionId))
+    return res.send(response)
+    } catch (error) {
+        console.log("getCollectionCount===",error);
+        return res.status(200).send([{amount:0}])
+    }
+}
+
 module.exports = {
     router: () => {
         const router = Router ();
@@ -946,6 +958,7 @@ module.exports = {
         router.get ('/bids', verify, fetchBidsByOwner);
         router.get ('/claimables', verify, fetchClaimable);
         router.get ('/claimables/count', verify, fetchClaimableCount);
+        router.get('/available-collection/:owner/:positionId',getCollectionCount)
         router.get ('/health', healthCheckLimiter, health);
         router.get ('/health/statswatch', healthCheckLimiter, automodHealth);
         router.get ('/health/automod', healthCheckLimiter, automodHealth);
