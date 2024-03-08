@@ -15,6 +15,7 @@ const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Cont
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
 const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionsByStateQuery, bidsByBidder, getCollectionAmountFromUser, toIndexerId } = require('../../lib/graphqlApi');
+const { getAvatar } = require('../../utils/avatars');
 let provider, marketplaceContract, collectibleContract;
 getWallet ().then (async wallet => {
     provider = wallet.provider;
@@ -204,7 +205,7 @@ const fetchCollection = async (req, res) => {
         creator: {
             id: user.address,
             name: user.name,
-            thumb: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(user.address)}&scale=50`
+            thumb: getAvatar(user.address)
         },
         thumb: collection.image,
         description: collection.description,
@@ -274,7 +275,7 @@ const fetchPosition = async (req, res) => {
         names.forEach (name => {
             namesObj = { ...namesObj, [name.address]: name.name };
         });
-
+        
         const itemObject = {
             approved: collectibleData.approved,
             positionId: Number (position.positionId),
@@ -290,13 +291,13 @@ const fetchPosition = async (req, res) => {
             },
             creator: {
                 address: item.creator,
-                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(item.creator)}&scale=50`,
+                avatar: getAvatar(item.creator),
                 name: namesObj [item.creator] || item.creator,
                 royalty: itemRoyalty.royaltyAmount.toNumber ()
             },
             owner: {
                 address: position.owner,
-                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.owner)}&scale=50`,
+                avatar: getAvatar(position.owner),
                 name: namesObj [position.owner] || position.owner
             },
             amount: Number (position.amount),
@@ -474,12 +475,12 @@ const getClaimableItems = async (address) => {
             from: {
                 name: namesObj [item.from],
                 address: item.from,
-                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(item.from)}&scale=50`
+                avatar: getAvatar(item.from)
             },
             creator: {
                 name: namesObj [meta.creator],
                 address: meta.creator,
-                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(meta.creator)}&scale=50`
+                avatar: getAvatar(meta.creator)
             }
         }
     });
@@ -604,12 +605,12 @@ const fetchSummary = async (_req, res) => {
                 collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
                     address: position.itemCreator,
-                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.itemCreator)}&scale=50`,
+                    avatar: getAvatar(position.itemCreator),
                     name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
                     address: position.owner,
-                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.owner)}&scale=50`,
+                    avatar: getAvatar(position.owner),
                     name: names [position.owner] || position.owner
                 },
                 amount: position.amount,
@@ -762,12 +763,12 @@ const fetchPositions = async (req, res) => {
                 collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
                     address: position.itemCreator,
-                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.itemCreator)}&scale=50`,
+                    avatar: getAvatar(position.itemCreator),
                     name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
                     address: position.owner,
-                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.owner)}&scale=50`,
+                    avatar: getAvatar(position.owner),
                     name: names [position.owner] || position.owner
                 },
                 amount: position.amount,
