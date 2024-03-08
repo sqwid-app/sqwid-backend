@@ -204,7 +204,7 @@ const fetchCollection = async (req, res) => {
         creator: {
             id: user.address,
             name: user.name,
-            thumb: `https://avatars.dicebear.com/api/identicon/${user.address}.svg`
+            thumb: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(user.address)}&scale=50`
         },
         thumb: collection.image,
         description: collection.description,
@@ -290,13 +290,13 @@ const fetchPosition = async (req, res) => {
             },
             creator: {
                 address: item.creator,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.creator}.svg`,
+                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(item.creator)}&scale=50`,
                 name: namesObj [item.creator] || item.creator,
                 royalty: itemRoyalty.royaltyAmount.toNumber ()
             },
             owner: {
                 address: position.owner,
-                avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.owner)}&scale=50`,
                 name: namesObj [position.owner] || position.owner
             },
             amount: Number (position.amount),
@@ -474,12 +474,12 @@ const getClaimableItems = async (address) => {
             from: {
                 name: namesObj [item.from],
                 address: item.from,
-                avatar: `https://avatars.dicebear.com/api/identicon/${item.from}.svg`
+                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(item.from)}&scale=50`
             },
             creator: {
                 name: namesObj [meta.creator],
                 address: meta.creator,
-                avatar: `https://avatars.dicebear.com/api/identicon/${meta.creator}.svg`
+                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(meta.creator)}&scale=50`
             }
         }
     });
@@ -604,12 +604,12 @@ const fetchSummary = async (_req, res) => {
                 collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
                     address: position.itemCreator,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${position.itemCreator}.svg`,
+                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.itemCreator)}&scale=50`,
                     name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
                     address: position.owner,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.owner)}&scale=50`,
                     name: names [position.owner] || position.owner
                 },
                 amount: position.amount,
@@ -762,12 +762,12 @@ const fetchPositions = async (req, res) => {
                 collection: collections [collectionsOfApprovedItems [approvedIds.find (i => i.id === position.itemId).collection]],
                 creator: {
                     address: position.itemCreator,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${position.itemCreator}.svg`,
+                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.itemCreator)}&scale=50`,
                     name: names [position.itemCreator] || position.itemCreator
                 },
                 owner: {
                     address: position.owner,
-                    avatar: `https://avatars.dicebear.com/api/identicon/${position.owner}.svg`,
+                    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURI(position.owner)}&scale=50`,
                     name: names [position.owner] || position.owner
                 },
                 amount: position.amount,
