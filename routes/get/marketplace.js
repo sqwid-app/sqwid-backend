@@ -741,7 +741,7 @@ const fetchPositions = async (req, res) => {
         }
 
         const { collectibles, collections, names } = await buildObjectsFromPositions (rawPositions, additionalNamesSearch);
-        const positions = [];
+        var positions = [];
         for (let i = 0; i < rawPositions.length; i++) {
             const position = rawPositions [i];
             if (position.state === 2) {
@@ -780,6 +780,7 @@ const fetchPositions = async (req, res) => {
                 meta: collectibles[position.itemId.toString ()]?.meta,
             });
         }
+        positions = positions.filter((p)=>p.collection.owner==p.creator.address)
         res.status (200).json ({
             items: positions,
             pagination: {
