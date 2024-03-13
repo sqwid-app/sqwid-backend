@@ -545,7 +545,8 @@ const fetchSummary = async (_req, res) => {
                 ethers.constants.AddressZero, // owner
                 0, // startFrom
                 4, // limit
-                Array.from (searchItemIds)
+                Array.from (searchItemIds),
+                ethers.constants.AddressZero, // creator address
             )))
         );
 
@@ -661,6 +662,7 @@ const fetchPositions = async (req, res) => {
     const limit = Math.min (Number (req.query.limit), 100) || 10;
     const { traits } = req.query;
     let searchItemIds = new Set ();
+    
     try {
         if (traits && Object.keys (traits).length) {
             searchItemIds = await grabItemsWithTraits (traits, collectionId);
@@ -682,12 +684,19 @@ const fetchPositions = async (req, res) => {
             }
         });
 
+        let collection = await getDbCollections ([collectionId]);
+        let collectionCreator = ethers.constants.AddressZero;
+        if(collection.length){
+            collectionCreator=collection[0].data.owner
+        }
+
         let rawPositions = await doQuery (positionsByStateQuery (
             state,
             ownerAddress || ethers.constants.AddressZero,
             startFrom,
             startFrom ? Math.min (limit, startFrom) : limit,
-            Array.from (searchItemIds)
+            Array.from (searchItemIds),
+            collectionCreator
         ));
 
         rawPositions = rawPositions.map (position => {
@@ -781,7 +790,7 @@ const fetchPositions = async (req, res) => {
                 meta: collectibles[position.itemId.toString ()]?.meta,
             });
         }
-        positions = positions.filter((p)=>p.collection.owner==p.creator.address)
+        // positions = positions.filter((p)=>p.collection.owner==p.creator.address)
         res.status (200).json ({
             items: positions,
             pagination: {
