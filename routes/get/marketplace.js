@@ -684,7 +684,7 @@ const fetchPositions = async (req, res) => {
             }
         });
 
-        let collection = await getDbCollections ([collectionId]);
+        let collection = collectionId ? await getDbCollections ([collectionId]):[];
         let collectionCreator = ethers.constants.AddressZero;
         if(collection.length){
             collectionCreator=collection[0].data.owner
