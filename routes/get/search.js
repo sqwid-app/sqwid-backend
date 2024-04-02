@@ -24,28 +24,66 @@ const searchUsers = async (req, res) => {
 }
 
 const searchCollections = async (req, res) => {
-    const { identifier } = req.params;
-    const page = req.query.page || 1;
-    const perPage = req.query.perPage || 10;
-    let collections = await typesense.collections (net.typesense.collections ['collections']).documents ().search ({
-        q: identifier,
-        query_by: 'name',
-        page,
-        per_page: perPage
-    });
-    const collectionDataPromises = collections.hits.map (hit => hit.document).map (collection => getDbCollections ([collection.id]));
-    const collectionData = await Promise.all (collectionDataPromises);
-    const data = collections.hits.map (hit => hit.document).map ((collection, index) => {
-        return {
-            ...collection,
-            ...(collectionData [index] [0].data)
-        }
-    });
+    try {
+        
+        const { identifier } = req.params;
+        const page = req.query.page || 1;
+        const perPage = req.query.perPage || 10;
 
-    res.json ({
-        total: collections.found,
-        collections: data
-    });
+        // let collections = await typesense.collections (net.typesense.collections ['collections']).documents ().search ({
+        //     q: identifier,
+        //     query_by: 'name',
+        //     page,
+        //     per_page: perPage
+        // });
+        // const collectionDataPromises = collections.hits.map (hit => hit.document).map (collection => getDbCollections ([collection.id]));
+        // const collectionData = await Promise.all (collectionDataPromises);
+        // const data = collections.hits.map (hit => hit.document).map ((collection, index) => {
+        //     return {
+        //         ...collection,
+        //         ...(collectionData [index] [0].data)
+        //     }
+        // });
+        let collectionResults = [];
+        const collectionsRef = firebase.collection('collections');
+
+        // finding the exact identifier
+        const collectionsResponseExactIdentifier = await collectionsRef.where('name', '>=', identifier).where('name', '<', getNextLexicographicalString(identifier)).get();
+
+        // finding the recirpocated identifier
+        collectionsResponseExactIdentifier.forEach((doc)=>{
+            let data = doc.data();
+                collectionResults.push({
+                    name:data.name,
+                    id:doc.id,
+                    image:data.image,
+                    description:data.description
+                })
+        })
+
+        const collectionsResponseModifiedIdentifier = await collectionsRef.where('name', '>=', invertFirstLetter(identifier)).where('name', '<', getNextLexicographicalString(invertFirstLetter(identifier))).get();
+
+        collectionsResponseModifiedIdentifier.forEach((doc)=>{
+            let data = doc.data();
+                collectionResults.push({
+                    name:data.name,
+                    id:doc.id,
+                    image:data.image,
+                    description:data.description
+                })
+        })
+        
+        res.json ({
+            total: collectionResults.length,
+            collections: collectionResults.slice((page-1)*perPage,perPage*page)
+        });
+    } catch (error) {
+        console.log(error.message);
+        return res.json({
+            total:0,
+            collections:[]
+        })
+    }
 }
 
 function getNextLexicographicalString(input) {
