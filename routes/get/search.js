@@ -3,7 +3,7 @@ const getNetworkConfig = require('../../lib/getNetworkConfig');
 const typesense = require ('../../lib/typesense');
 const { getDbCollections, sliceIntoChunks } = require('./marketplace');
 const firebase = require ('../../lib/firebase');
-const { fetchCachedCollectibles } = require('../../lib/caching');
+
 const net = getNetworkConfig();
 
 const searchUsers = async (req, res) => {
@@ -30,20 +30,7 @@ const searchCollections = async (req, res) => {
         const page = req.query.page || 1;
         const perPage = req.query.perPage || 10;
 
-        // let collections = await typesense.collections (net.typesense.collections ['collections']).documents ().search ({
-        //     q: identifier,
-        //     query_by: 'name',
-        //     page,
-        //     per_page: perPage
-        // });
-        // const collectionDataPromises = collections.hits.map (hit => hit.document).map (collection => getDbCollections ([collection.id]));
-        // const collectionData = await Promise.all (collectionDataPromises);
-        // const data = collections.hits.map (hit => hit.document).map ((collection, index) => {
-        //     return {
-        //         ...collection,
-        //         ...(collectionData [index] [0].data)
-        //     }
-        // });
+       
         let collectionResults = [];
         const collectionsRef = firebase.collection('collections');
 
@@ -72,6 +59,22 @@ const searchCollections = async (req, res) => {
                     description:data.description
                 })
         })
+
+        if(collectionResults.length==0){
+            const collectionsResponseWhenNoMatch = await collectionsRef.where('name', '>=', identifier).get();
+            collectionsResponseWhenNoMatch.forEach((doc)=>{
+                let data = doc.data();
+                    collectionResults.push({
+                        name:data.name,
+                        id:doc.id,
+                        image:data.image,
+                        description:data.description
+                    })
+            })
+            // find only first 10
+            const filteredArray = collectionResults.filter(obj => obj.name.toLowerCase().startsWith(identifier.toLowerCase().charAt(0)));
+            collectionResults=filteredArray.slice(0,10);
+        }
         
         res.json ({
             total: collectionResults.length,
