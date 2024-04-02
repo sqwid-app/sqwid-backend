@@ -132,26 +132,6 @@ const searchAll = async (req, res) => {
         return res.json({
             collections:collectionResults
         });
-        // let result = await typesense.multiSearch.perform({
-        //     searches: [{
-        //         collection: net.typesense.collections ['users'],
-        //         q: identifier,
-        //         query_by: 'displayName,evmAddress,address',
-        //         query_by_weights: '3,2,1',
-        //         limit_hits: 3,
-        //     }, {
-        //         collection: net.typesense.collections ['collections'],
-        //         q: identifier,
-        //         query_by: 'name',
-        //         limit_hits: 3
-        //     }]
-        // }, {
-        //     per_page: 3
-        // });
-        // result = {
-        //     users: result.results[0].hits.map (hit => hit.document),
-        //     collections: result.results[1].hits.map (hit => hit.document)
-        // }
     } catch (e) {
         console.log('ERROR searchAll=',e.message);
     }
