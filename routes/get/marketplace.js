@@ -977,4 +977,5 @@ module.exports = {
     getDbCollections,
     getDbCollectibles,
     getNamesByEVMAddresses,
+    sliceIntoChunks
 }
