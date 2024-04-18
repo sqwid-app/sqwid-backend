@@ -81,7 +81,7 @@ const searchCollections = async (req, res) => {
             collections: collectionResults.slice((page-1)*perPage,perPage*page)
         });
     } catch (error) {
-        console.log(error.message);
+        console.log("search ERR=",error.message);
         return res.json({
             total:0,
             collections:[]
