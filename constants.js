@@ -67,10 +67,13 @@ if (!envNetwork) {
     throw new Error('process.env.NETWORK value='+ process.env.NETWORK +' not a property name of '+ Object.keys(networks));
 }
 
+const moderators = process.env.MODERATORS?.split(',')??[];
+
 module.exports = {
     networks,
     defaultNetwork: process.env.NETWORK,
     defaultCollectionId: 'ASwOXeRM5DfghnURP4g2',
+    moderators,
     TEMP_PATH,
     config,
     TESTNET,
