@@ -2,6 +2,7 @@ const { Router } = require ('express');
 const { moderators } = require('../../constants');
 const { isValidSignature } = require('../../lib/verify');
 const firebase = require('../../lib/firebase');
+const { getWallet } = require('../../lib/getWallet');
 const { FieldValue } = require ('firebase-admin').firestore;
 
 const approveBlacklistedCollectionById = async (req, res) => {
@@ -11,7 +12,17 @@ const approveBlacklistedCollectionById = async (req, res) => {
             itemId,collectionId} = req.body;
 
         //check if moderator address is the correct evm address of the native address sent
-        //todo @anukulpandey
+        const {provider} = await getWallet();
+
+        const addressResolutionResult = await provider.api.query.evmAccounts.accounts(moderatorAddress);
+
+        if(addressResolutionResult.toString()!=address){
+            return res.json({
+                data: false,
+                error:"Incorrect nativeAddress-evmAddress pair"
+            })
+        }
+        
 
         // check if moderator is in array of moderators
         const isValidModerator = moderators.includes(moderatorAddress);
