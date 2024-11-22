@@ -1,9 +1,20 @@
 const { Router } = require ('express');
-const { moderators } = require('../../constants');
 const { isValidSignature } = require('../../lib/verify');
 const firebase = require('../../lib/firebase');
 const { getWallet } = require('../../lib/getWallet');
 const { FieldValue } = require ('firebase-admin').firestore;
+
+const getModerators = async () => {
+    try {
+        const configRef = firebase.collection('config');
+        const moderatorsDoc = await configRef.doc('content_moderators').get();
+        return moderatorsDoc.data()?.addresses || [];
+    } catch (error) {
+        console.error('Error fetching moderators from Firebase:', error);
+        return [];
+    }
+};
+
 
 const approveBlacklistedCollectionById = async (req, res) => {
     try {
@@ -13,6 +24,7 @@ const approveBlacklistedCollectionById = async (req, res) => {
 
         //check if moderator address is the correct evm address of the native address sent
         const {provider} = await getWallet();
+        const moderators = await getModerators();
 
         const addressResolutionResult = await provider.api.query.evmAccounts.accounts(moderatorAddress);
 
