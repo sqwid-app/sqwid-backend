@@ -5,6 +5,7 @@ const { getWallet } = require ('../lib/getWallet');
 const ethers = require ('ethers');
 
 let nonce = (req, res) => {
+    console.log("here in nonce")
     firebase
     .collection ('users')
     .doc (req.query.address)
