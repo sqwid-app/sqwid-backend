@@ -80,12 +80,15 @@ if (!envNetwork) {
   );
 }
 
+const moderators = process.env.MODERATORS?.split(',')??[];
+
 module.exports = {
-  networks,
-  defaultNetwork: process.env.NETWORK,
-  defaultCollectionId: "ASwOXeRM5DfghnURP4g2",
-  TEMP_PATH,
-  config,
-  TESTNET,
-  MAINNET,
+    networks,
+    defaultNetwork: process.env.NETWORK,
+    defaultCollectionId: 'ASwOXeRM5DfghnURP4g2',
+    moderators,
+    TEMP_PATH,
+    config,
+    TESTNET,
+    MAINNET
 };

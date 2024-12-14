@@ -22,8 +22,26 @@ const { initAutomod } = require('./lib/automod');
 const firebase = require ('./lib/firebase');
 // const redisClient = require ('./lib/redis');
 
+const initAdminConfig = async () => {
+  try {
+    const configRef = firebase.collection('config');
+    const moderatorsDoc = configRef.doc('content_moderators');
+    
+    const moderatorAddresses = process.env.MODERATORS?.split(',').map(addr => addr.trim()) || [];
+    
+    await moderatorsDoc.set({
+      addresses: moderatorAddresses
+    }, { merge: true });
+    
+    console.log('Content moderators configuration updated successfully');
+  } catch (error) {
+    console.error('Error updating content moderators:', error);
+  }
+};
+
 initStatsWatch();
 initAutomod();
+initAdminConfig();
 
 /*const limiter = rateLimit ({
 	windowMs: 1 * 60 * 1000, // 1 minute
