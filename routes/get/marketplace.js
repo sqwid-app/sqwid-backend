@@ -325,9 +325,8 @@ const fetchPosition = async (req, res) => {
                 address: item.creator,
                 avatar: getAvatar(item.creator),
                 name: namesObj [item.creator] || item.creator,
-                royalty: {
-                    receivers,
-                    royaltyAmount:itemRoyalty.royaltyAmount.toNumber ()}
+                royalty:itemRoyalty.royaltyAmount.toNumber (),
+                royaltyReceivers:receivers
             },
             owner: {
                 address: position.owner,
