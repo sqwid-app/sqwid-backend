@@ -4,6 +4,7 @@ const rateLimit = require ('express-rate-limit');
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
 const marketplaceContractABI = require ('../../contracts/SqwidMarketplace').ABI;
 const multicallContractABI = require ('../../contracts/Multicall3').ABI;
+const splitzContractABI = require ('../../contracts/Splitz').ABI;
 const { getWallet } = require ('../../lib/getWallet');
 const getNetworkConfig = require ('../../lib/getNetworkConfig');
 const firebase = require ('../../lib/firebase');
@@ -12,9 +13,10 @@ const { fetchCachedCollectibles, cacheCollectibles, fetchCachedCollections, cach
 const CollectibleContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetworkConfig().contracts ['erc1155'], collectibleContractABI, signerOrProvider);
 const MarketplaceContract = (signerOrProvider) => new ethers.Contract (getNetworkConfig().contracts ['marketplace'], marketplaceContractABI, signerOrProvider);
 const MulticallContract = (signerOrProvider, contractAddress) => new ethers.Contract (contractAddress || getNetworkConfig().contracts ['multicall'], multicallContractABI, signerOrProvider);
+const SplitzContract = (signerOrProvider, contractAddress)=>new ethers.Contract (contractAddress, splitzContractABI, signerOrProvider);
 const { verify } = require ('../../middleware/auth');
 const { getEVMAddress } = require('../../lib/getEVMAddress');
-const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionsByStateQuery, bidsByBidder, getCollectionAmountFromUser, toIndexerId } = require('../../lib/graphqlApi');
+const { balanceQuery, doQuery, withdrawableQuery, itemByNftIdQuery, positionsByStateQuery, bidsByBidder, getCollectionAmountFromUser, toIndexerId, contractAddressQuery } = require('../../lib/graphqlApi');
 const { getAvatar } = require('../../utils/avatars');
 let provider, marketplaceContract, collectibleContract;
 getWallet ().then (async wallet => {
@@ -275,6 +277,36 @@ const fetchPosition = async (req, res) => {
         names.forEach (name => {
             namesObj = { ...namesObj, [name.address]: name.name };
         });
+
+        const receivers = [];
+
+        //check if itemRoyalty.receiver is account address or contract address
+        const contractAddressResponse = await doQuery(contractAddressQuery(
+            itemRoyalty.receiver
+        ));
+
+        // if contract address
+        if(contractAddressResponse==itemRoyalty.receiver){
+            const splitzContract = SplitzContract(provider,
+                itemRoyalty.receiver
+            );
+            // get splitzer recipients
+            const splitzRecipients = await splitzContract.getPayees();
+
+            // append them in receivers
+            splitzRecipients.forEach((recipient)=>{
+                receivers.push({
+                    receiver:recipient.payee,
+                    share:recipient.share.toNumber()
+                })
+            })
+        }else{
+            // if account address 
+            receivers.push({
+                receiver:itemRoyalty.receiver,
+                share:100
+            });
+        }
         
         const itemObject = {
             approved: collectibleData.approved,
@@ -293,7 +325,9 @@ const fetchPosition = async (req, res) => {
                 address: item.creator,
                 avatar: getAvatar(item.creator),
                 name: namesObj [item.creator] || item.creator,
-                royalty: itemRoyalty.royaltyAmount.toNumber ()
+                royalty: {
+                    receivers,
+                    royaltyAmount:itemRoyalty.royaltyAmount.toNumber ()}
             },
             owner: {
                 address: position.owner,
