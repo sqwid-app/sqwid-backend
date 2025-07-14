@@ -873,11 +873,11 @@ const fetchPositions = async (req, res) => {
     }
 
     // This code resets the items for certain collection to all items
-    if (Array.isArray(approvedIds)) {
-      searchItemIds = new Set(approvedIds.map((item) => item.id));
-    } else {
-      console.error("approvedIds is not an array");
-    }
+    // if (Array.isArray(approvedIds)) {
+    //   searchItemIds = new Set(approvedIds.map((item) => item.id));
+    // } else {
+    //   console.error("approvedIds is not an array");
+    // }
 
     if (!Array.from(searchItemIds).length)
       return res.status(200).json({
