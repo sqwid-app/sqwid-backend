@@ -4,6 +4,7 @@ const rateLimit = require("express-rate-limit");
 const collectibleContractABI = require("../../contracts/SqwidERC1155").ABI;
 const marketplaceContractABI = require("../../contracts/SqwidMarketplace").ABI;
 const multicallContractABI = require("../../contracts/Multicall3").ABI;
+const splitzContractABI = require ('../../contracts/Splitz').ABI;
 const { getWallet } = require("../../lib/getWallet");
 const getNetworkConfig = require("../../lib/getNetworkConfig");
 const firebase = require("../../lib/firebase");
@@ -34,6 +35,7 @@ const MulticallContract = (signerOrProvider, contractAddress) =>
     multicallContractABI,
     signerOrProvider
   );
+const SplitzContract = (signerOrProvider, contractAddress)=>new ethers.Contract (contractAddress, splitzContractABI, signerOrProvider);
 const { verify } = require("../../middleware/auth");
 const { getEVMAddress } = require("../../lib/getEVMAddress");
 const {
@@ -44,7 +46,7 @@ const {
   positionsByStateQuery,
   bidsByBidder,
   getCollectionAmountFromUser,
-  toIndexerId,
+  toIndexerId, contractAddressQuery,
 } = require("../../lib/graphqlApi");
 const { getAvatar } = require("../../utils/avatars");
 const { firestore } = require("firebase-admin");
@@ -365,6 +367,36 @@ const fetchPosition = async (req, res) => {
       namesObj = { ...namesObj, [name.address]: name.name };
     });
 
+        const receivers = [];
+
+        //check if itemRoyalty.receiver is account address or contract address
+        const contractAddressResponse = await doQuery(contractAddressQuery(
+            itemRoyalty.receiver
+        ));
+
+        // if contract address
+        if(contractAddressResponse==itemRoyalty.receiver){
+            const splitzContract = SplitzContract(provider,
+                itemRoyalty.receiver
+            );
+            // get splitzer recipients
+            const splitzRecipients = await splitzContract.getPayees();
+
+            // append them in receivers
+            splitzRecipients.forEach((recipient)=>{
+                receivers.push({
+                    receiver:recipient.payee,
+                    share:recipient.share.toNumber()
+                })
+            })
+        }else{
+            // if account address 
+            receivers.push({
+                receiver:itemRoyalty.receiver,
+                share:100
+            });
+        }
+
     const itemObject = {
       approved: collectibleData.approved,
       positionId: Number(position.positionId),
@@ -383,7 +415,8 @@ const fetchPosition = async (req, res) => {
         address: item.creator,
         avatar: getAvatar(item.creator),
         name: namesObj[item.creator] || item.creator,
-        royalty: itemRoyalty.royaltyAmount.toNumber(),
+        royalty:itemRoyalty.royaltyAmount.toNumber(),
+                royaltyReceivers:receivers
       },
       owner: {
         address: position.owner,
