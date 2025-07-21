@@ -1244,3 +1244,4 @@ module.exports = {
   getNamesByEVMAddresses,
   sliceIntoChunks,
 };
+``
