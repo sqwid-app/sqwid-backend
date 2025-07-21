@@ -326,46 +326,36 @@ const fetchPosition = async (req, res) => {
 
     const item = await marketplaceContract.fetchItem(position.itemId);
 
-    let auctionData,
-      raffleData,
-      loanData = null;
-    const addressesNameSearch = [item.creator, position.owner];
-    switch (position.state) {
-      case 2:
-        auctionData = await marketplaceContract.fetchAuctionData(positionId);
-        addressesNameSearch.push(auctionData.highestBidder);
-        break;
-      case 3:
-        raffleData = await marketplaceContract.fetchRaffleData(positionId);
-        break;
-      case 4:
-        loanData = await marketplaceContract.fetchLoanData(positionId);
-        addressesNameSearch.push(loanData.lender);
-        break;
-    }
+        let auctionData, raffleData, loanData = null;
+        const addressesNameSearch = [item.creator, position.owner];
+        switch (position.state) {
+            case 2:
+                auctionData = await marketplaceContract.fetchAuctionData (positionId);
+                addressesNameSearch.push (auctionData.highestBidder);
+                break;
+            case 3:
+                raffleData = await marketplaceContract.fetchRaffleData (positionId);
+                break;
+            case 4:
+                loanData = await marketplaceContract.fetchLoanData (positionId);
+                addressesNameSearch.push (loanData.lender);
+                break;
+        }
 
-    const collectionPromise = getDbCollections([collectibleData.collectionId]);
-    const namesPromise = getNamesByEVMAddresses(
-      Array.from(
-        new Set([...addressesNameSearch, ...(collectibleData.hearts || [])])
-      )
-    );
-    const itemMetaPromise = collectibleContract.uri(item.tokenId);
-    const itemRoyaltiesPromise = collectibleContract.royaltyInfo(
-      item.tokenId,
-      100
-    );
-    const [collection, names, itemMeta, itemRoyalty] = await Promise.all([
-      collectionPromise,
-      namesPromise,
-      itemMetaPromise,
-      itemRoyaltiesPromise,
-    ]);
+        const collectionPromise = getDbCollections ([collectibleData.collectionId]);
+        const namesPromise = getNamesByEVMAddresses (Array.from (new Set ([
+            ...addressesNameSearch,
+            ...(collectibleData.hearts || [])
+        ])));
+        const itemMetaPromise = collectibleContract.uri (item.tokenId);
+        const itemRoyaltiesPromise = collectibleContract.royaltyInfo (item.tokenId, 100);
+        const [collection, names, itemMeta, itemRoyalty] = await Promise.all (
+            [collectionPromise, namesPromise, itemMetaPromise, itemRoyaltiesPromise]);
 
-    let namesObj = {};
-    names.forEach((name) => {
-      namesObj = { ...namesObj, [name.address]: name.name };
-    });
+        let namesObj = {};
+        names.forEach (name => {
+            namesObj = { ...namesObj, [name.address]: name.name };
+        });
 
         const receivers = [];
 
@@ -396,56 +386,50 @@ const fetchPosition = async (req, res) => {
                 share:100
             });
         }
-
-    const itemObject = {
-      approved: collectibleData.approved,
-      positionId: Number(position.positionId),
-      itemId: Number(item.itemId),
-      tokenId: Number(item.tokenId),
-      hearts:
-        collectibleData.hearts?.map((usr) => ({
-          name: namesObj[usr],
-          address: usr,
-        })) || [],
-      collection: {
-        ...collection[0].data,
-        id: collection[0].id,
-      },
-      creator: {
-        address: item.creator,
-        avatar: getAvatar(item.creator),
-        name: namesObj[item.creator] || item.creator,
-        royalty:itemRoyalty.royaltyAmount.toNumber(),
+        
+        const itemObject = {
+            approved: collectibleData.approved,
+            positionId: Number (position.positionId),
+            itemId: Number (item.itemId),
+            tokenId: Number (item.tokenId),
+            hearts: collectibleData.hearts?.map (usr => ({
+                name: namesObj [usr],
+                address: usr
+            })) || [],
+            collection: {
+                ...collection [0].data,
+                id: collection [0].id
+            },
+            creator: {
+                address: item.creator,
+                avatar: getAvatar(item.creator),
+                name: namesObj [item.creator] || item.creator,
+                royalty:itemRoyalty.royaltyAmount.toNumber (),
                 royaltyReceivers:receivers
-      },
-      owner: {
-        address: position.owner,
-        avatar: getAvatar(position.owner),
-        name: namesObj[position.owner] || position.owner,
-      },
-      amount: Number(position.amount),
-      sale: position.state === 1 ? buildSaleData(position) : null,
-      auction:
-        position.state === 2 ? buildAuctionData(auctionData, namesObj) : null,
-      raffle: position.state === 3 ? buildRaffleData(raffleData) : null,
-      loan: position.state === 4 ? buildLoanData(loanData, namesObj) : null,
-      marketFee: Number(position.marketFee),
-      state: position.state,
-      meta: {
-        ...collectibleData.meta,
-        uri: itemMeta,
-        tokenContract: item.nftContract,
-      },
-    };
-    res?.status(200).json(itemObject);
-    return itemObject;
-  } catch (err) {
-    console.log("marketplace 1 ERR=", err);
-    res?.json({
-      error: err.toString(),
-    });
-    return null;
-  }
+            },
+            owner: {
+                address: position.owner,
+                avatar: getAvatar(position.owner),
+                name: namesObj [position.owner] || position.owner
+            },
+            amount: Number (position.amount),
+            sale: position.state === 1 ? buildSaleData (position) : null,
+            auction: position.state === 2 ? buildAuctionData (auctionData, namesObj) : null,
+            raffle: position.state === 3 ? buildRaffleData (raffleData) : null,
+            loan: position.state === 4 ? buildLoanData (loanData, namesObj) : null,
+            marketFee: Number (position.marketFee),
+            state: position.state,
+            meta: { ...collectibleData.meta, uri: itemMeta, tokenContract: item.nftContract },
+        }
+        res?.status (200).json (itemObject);
+        return itemObject;
+    } catch (err) {
+        console.log ('marketplace 1 ERR=',err);
+        res?.json ({
+            error: err.toString ()
+        });
+        return null;
+    }
 };
 
 const getDbCollectibles = async (items) => {
