@@ -25,7 +25,7 @@ const computeSalesData = (sales) => {
 
 const getCollectibleSaleHistory = async (req, res) => {
     const { id } = req.params;
-    const sales = await doQuery (salesQuery (id));
+    const sales = await doQuery (salesQuery (id)); 
     res?.json ({ sales });
 }
 

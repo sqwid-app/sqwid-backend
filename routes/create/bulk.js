@@ -9,7 +9,7 @@ const { generateThumbnail, generateSmallSize } = require('../../lib/resizeFile')
 const mime = require('mime-types');
 const { initIpfs } = require("../../lib/IPFS");
 const multer = require ('multer');
-const { newCollection } = require('../../lib/collection');
+const { newCollection, uploadMetadataToIPFS, uploadBulkToIPFS } = require('../../lib/collection');
 const { getWallet } = require("../../lib/getWallet");
 const getNetworkConfig = require('../../lib/getNetworkConfig');
 const collectibleContractABI = require ('../../contracts/SqwidERC1155').ABI;
@@ -158,7 +158,6 @@ const upload = async (inputName) => {
   }
 
   // Upload to files to IPFS
-  console.log("uploading files to IPFS");
   const uploadsArray = [
     uploadToIPFS(`${dir}/media`),
     uploadToIPFS(`${dir}/small`),
@@ -188,25 +187,69 @@ const upload = async (inputName) => {
   };
 }
 
+// const create = async (req, res, next) => {
+//   try {
+//     const collection = await newCollection( req.user.address, req.body.collectionName, req.body.collectionDescription, req.file );
+//     const uploadRes = await upload(req.body.zipFile + req.ip);
+//     if (uploadRes.errorCode) {
+//       return res.status(uploadRes.errorCode).json({error: uploadRes.errorMessage});
+//     }
+//     return res.status(201).json({
+//       collectionId: collection.id,
+//       metadata: uploadRes.metadataUri,
+//       numItems: uploadRes.numItems,
+//     });
+//   } catch (err) {
+//       next (err);
+//   }
+// };
+
 const create = async (req, res, next) => {
   try {
-    const collection = await newCollection(
-        req.user.address,
-        req.body.collectionName,
-        req.body.collectionDescription,
-        req.file
-    );
-    const uploadRes = await upload(req.body.zipFile + req.ip);
-    if (uploadRes.errorCode) {
-      return res.status(uploadRes.errorCode).json({error: uploadRes.errorMessage});
-    }
+    const { collectionName, collectionDescription, royaltyRecipient, copies, royalty } = req.body;
+    const coverFile = req.files['coverFile']?.[0]; 
+    const files = req.files['files'] || []; 
+   // ToDo: Implement user as owner authentication - For reference see collectible line 145 onwards
+      // Step 1: Create Collection
+    const collection = await newCollection(req.user.address, collectionName, collectionDescription, coverFile);
+    // Step 2: Upload each file to IPFS and generate metadata
+    const uploadResults = await Promise.all(files.map(async (file, index) => {
+      const [thumbnail, small] = await Promise.all([
+        generateThumbnail(file.buffer),      
+        generateSmallSize(file.buffer)
+      ]);
+
+      const [fileHash, thumbnailHash, smallHash] = await Promise.all([
+        uploadBulkToIPFS(file.buffer),
+        uploadBulkToIPFS(thumbnail),    
+        uploadBulkToIPFS(small)
+      ]);
+      // const fileNameWithoutExtension = file.originalname.replace(/\.[^/.]+$/, "");
+       const fileNameWithIndex = `${collectionName} # ${index + 1}`;
+      return {
+        name: fileNameWithIndex,
+        description: collectionDescription,
+        attributes: [], // Add any additional attributes here
+        media: `ipfs://${fileHash}`,
+        image: `ipfs://${smallHash}`,
+        thumbnail: `ipfs://${thumbnailHash}`,
+        mimetype: file.mimetype
+      };
+    }));
+    // Step 3: Upload Metadata
+    const metadataUri = await uploadMetadataToIPFS(uploadResults);
+    const metadata = {
+      rootDirCid: metadataUri.rootDirCid,
+      files: metadataUri.files, 
+    };
+    // Step 4: Respond with collection details
     return res.status(201).json({
       collectionId: collection.id,
-      metadata: uploadRes.metadataUri,
-      numItems: uploadRes.numItems,
+      metadata: metadata,
+      numItems: uploadResults.length,
     });
   } catch (err) {
-      next (err);
+    next(err);
   }
 };
 
@@ -241,7 +284,7 @@ const verifyItems = async (req, res, next) => {
     });
 
     let verifiedCount = 0;
-
+    let ipfsURICr;
     // verify user owns collection
     if (collectionDoc.length && (collectionDoc [0].data.owner === creator)) {
 
@@ -251,16 +294,18 @@ const verifyItems = async (req, res, next) => {
           try {
               const item = await marketContract.fetchItem (id);
               let ipfsURI;
-              if (item.creator === creator) {
+
+              if (item.creator.toLowerCase() === creator.toLowerCase()) {
                   let meta = {};
+                  let creatorToDb = item.creator;
                   try {
                       ipfsURI = await tokenContract.uri (item.tokenId);
-                      const response = await axios (getInfuraURL(ipfsURI));
+                       ipfsURICr = ipfsURI.replace(/\/[^/]+$/, "");
+                      const response = await axios (getInfuraURL(ipfsURICr));
                       meta = response.data;
                   } catch (err) {
                       console.log ('bulk 1 ERR=',err);
                   }
-
                   if (!meta.name) return res.status (400).json ({
                       error: 'Blockchain item not found'
                   });
@@ -279,7 +324,7 @@ const verifyItems = async (req, res, next) => {
                       firebase.collection ('collectibles').add ({
                           id,
                           tokenId: item.tokenId.toNumber (),
-                          uri: ipfsURI,
+                          uri: "ipfs://" + ipfsURICr,
                           collectionId,
                           createdAt: new Date (),
                           creator,
@@ -445,21 +490,38 @@ const getMetadata = (csv) => {
     return metadataArray;
 }
 
-const uploadToIPFS = async (dir) => {
+
+// old 
+// const uploadToIPFS = async (dir) => {
+//   const ipfs = initIpfs();
+
+//   const addOptions = {
+//     pin: true,
+//     wrapWithDirectory: true
+//   };
+
+//   let cid;
+//   for await (const file of ipfs.addAll(ipfsClient.globSource(dir, '**/*'), addOptions)) {
+//     if (file.path === "") cid = file.cid.toString().replace("CID(", "").replace(")", "");
+//   }
+
+//   return `ipfs://${cid}`;
+// }
+
+
+// Abdul
+const uploadToIPFS = async (fileBuffer) => {
   const ipfs = initIpfs();
 
   const addOptions = {
     pin: true,
-    wrapWithDirectory: true
+    wrapWithDirectory: false
   };
 
-  let cid;
-  for await (const file of ipfs.addAll(ipfsClient.globSource(dir, '**/*'), addOptions)) {
-    if (file.path === "") cid = file.cid.toString().replace("CID(", "").replace(")", "");
-  }
+  const result = await ipfs.add(fileBuffer, addOptions);
+  return result.cid.toString(); // Return the CID directly
+};
 
-  return `ipfs://${cid}`;
-}
 
 const hexId = (id) => { return id.toString(16).padStart(5, "0"); };
 
@@ -474,7 +536,12 @@ module.exports = () => {
 
   router.post ('/verify', verify, verifyItems);
   router.post ('/upload-chunk', verify, uploadChunk);
-  router.post ('/create', [ verify, imageUpload.single ("coverFile") ], create);
+  // router.post ('/create', [ verify, imageUpload.single ("coverFile") ], create);
+
+  router.post('/create', [verify, imageUpload.fields([
+    { name: "coverFile", maxCount: 1 },
+    { name: "files", maxCount: 100 }, 
+  ])], create);
 
   return router;
 }

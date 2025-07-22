@@ -30,7 +30,7 @@ const createLimiter = rateLimit ({
 const editLimiter = rateLimit ({
     windowMs: 5 * 60 * 1000, // 5 minute
     max: 20, // limit each IP to 20 requests per windowMs
-    standardHeaders: true,
+    standardHeaders: true,   
     legacyHeaders: false,
 });
 
