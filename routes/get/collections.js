@@ -88,10 +88,10 @@ const all = async (req, res) => {
     const startAt = req.query.startAt || (sorting === 'asc' ? 0 : Infinity);
     const orderBy = req.params.property || req.query.orderBy || 'name';
 
-    // const snapshot = await collectionsRef.orderBy (orderBy, sorting).startAfter (Number(startAt)).limit (limit).get ();
+    const snapshot = await collectionsRef.orderBy (orderBy, sorting).startAfter (Number(startAt)).limit (limit).get ();
 
-    const snapshot = await collectionsRef.get();
-    console.log("snapshot==", snapshot);
+    // const snapshot = await collectionsRef.get();
+    // console.log("snapshot==", snapshot);
 
     if (snapshot.empty) {
     console.log("No collections");
