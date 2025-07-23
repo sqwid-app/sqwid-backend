@@ -10,7 +10,7 @@ const collectibleContractABI = require("../../contracts/SqwidERC1155").ABI;
 const marketplaceContractABI = require("../../contracts/SqwidMarketplace").ABI;
 
 const { getEVMAddress } = require("../../lib/getEVMAddress");
-const cors = require("cors");
+// const cors = require("cors");
 const { getWallet } = require("../../lib/getWallet");
 const { getInfuraURL } = require("../../lib/getIPFSURL");
 const axios = require("axios");
