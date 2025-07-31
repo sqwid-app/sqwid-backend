@@ -264,6 +264,20 @@ const buildLoanData = (loanData, names) => {
   };
 };
 
+const resolveCreator=(user,owner)=>{
+  if(user){
+    return {
+      id: user?.address,
+      name: user?.name,
+      thumb: getAvatar(user?.address),
+    };
+  }return{
+    id:owner,
+    name:owner,
+    thumb:getAvatar(owner)
+  }
+}
+
 const fetchCollection = async (req, res) => {
   const { collectionId } = req.params;
 
@@ -277,11 +291,7 @@ const fetchCollection = async (req, res) => {
 
   let collectionResponse = {
     name: collection.name,
-    creator: {
-      id: user?.address,
-      name: user?.name,
-      thumb: getAvatar(user?.address),
-    },
+    creator: resolveCreator(user,collection.owner),
     thumb: collection.image,
     description: collection.description,
     traits: collection.traits,

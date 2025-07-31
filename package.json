@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js",
-    "start:clean": "rm -rf node_modules&&rm -f yarn.lock&&yarn install&&yarn start",
-    "dev": "nodemon --no-deprecation index.js"
+    "start": "node init && node index.js",
+    "start:clean": "node init && rm -rf node_modules&&rm -f yarn.lock&&yarn install&&yarn start",
+    "dev": "node init && nodemon --no-deprecation index.js"
   },
   "author": "",
   "license": "ISC",
